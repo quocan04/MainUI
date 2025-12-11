@@ -1,0 +1,15 @@
+# MySQL Connector
+mysql-connector-python==8.2.0
+
+# Alternative: PyMySQL (lightweight)
+# pymysql==1.1.0
+
+# GUI (already included in Python)
+# tkinter
+
+# Export libraries
+openpyxl==3.1.2      # For Excel export
+reportlab==4.0.7     # For PDF export
+
+# Utilities
+python-dotenv==1.0.0 # For environment variables
