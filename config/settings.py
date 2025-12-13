@@ -13,8 +13,8 @@ class DatabaseConfig:
 
     HOST = os.getenv('DB_HOST', '127.0.0.1')
     PORT = int(os.getenv('DB_PORT', 3306))
-    USER = os.getenv('DB_USER', 'nvkhoadev')
-    PASSWORD = os.getenv('DB_PASSWORD', '05042004')
+    USER = os.getenv('DB_USER', 'root')
+    PASSWORD = os.getenv('DB_PASSWORD', '123456')
     DATABASE = os.getenv('DB_NAME', 'library_management')
 
     # Connection pool settings

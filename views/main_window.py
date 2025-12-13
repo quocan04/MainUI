@@ -13,6 +13,7 @@ from views.book_view import BookView
 from views.report_view import ReportView
 from views.staff_view import StaffView
 from views.system_view import SystemView
+from config.session import Session
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ class MainWindow(tk.Tk):
     def __init__(self):
         super().__init__()
 
+        self.is_checking_auth = False
         self.title(f"{AppConfig.APP_NAME} v{AppConfig.VERSION}")
         self.geometry("1400x800")
         self.minsize(1200, 600)
@@ -46,7 +48,8 @@ class MainWindow(tk.Tk):
             )
             self.destroy()
             sys.exit(1)
-
+        #Đăng nhập khi khởi tạo
+        self._check_login_on_startup()
         # Configure style
         self._configure_style()
 
@@ -142,6 +145,30 @@ class MainWindow(tk.Tk):
         self.bind('<Control-4>', lambda e: self._show_tab(4))
         self.bind('<Control-5>', lambda e: self.open_staff_management())
 
+    def _check_login_on_startup(self):
+        """Kiểm tra và yêu cầu đăng nhập khi khởi động ứng dụng."""
+        # Import cục bộ để tránh lỗi vòng lặp/ImportError
+        from views.staff_login_view import StaffLoginView
+
+        # Kiểm tra trạng thái hiện tại (nếu Session đã được tải từ đâu đó)
+        if not Session.is_authenticated():
+            # Mở dialog login modal
+            login = StaffLoginView(self)
+            self.wait_window(login)  # Chờ cho đến khi cửa sổ đóng
+
+            # 2. Kiểm tra lại sau khi đóng cửa sổ login
+            if not Session.is_authenticated():
+                messagebox.showerror(
+                    "Đăng nhập thất bại",
+                    "Bạn phải đăng nhập để sử dụng hệ thống.",
+                    icon='error'
+                )
+                self.destroy()
+                sys.exit(1)
+
+        # Nếu đăng nhập thành công, tiếp tục khởi động ứng dụng
+        logger.info(f"User {Session.get_username()} logged in with role_id: {Session.get_role_id()}")
+
     def _on_tab_selected(self, event):
         """Xử lý sự kiện khi người dùng click chuyển tab"""
         if self.is_checking_auth: return  # Tránh vòng lặp
@@ -156,35 +183,23 @@ class MainWindow(tk.Tk):
             self.open_staff_management()
 
     def open_staff_management(self):
-        """Xử lý logic mở tab nhân viên"""
-        self.is_checking_auth = True  # Bật cờ kiểm tra
+        """Xử lý logic mở tab nhân viên (Đã đăng nhập)"""
 
         try:
-            # 1. Kiểm tra đăng nhập
-            # SỬA: Thay is_logged_in() bằng is_authenticated()
-            if not Session.is_authenticated():
-                # Import tại đây để tránh vòng lặp import nếu có
-                from views.staff_login_view import StaffLoginView
+            from views.staff_view import StaffView # Giữ import cục bộ
 
-                # Mở dialog login modal
-                login = StaffLoginView(self)
-                self.wait_window(login)  # Chờ cho đến khi cửa sổ đóng
+            self.is_checking_auth = True  # Bật cờ kiểm tra (Giữ nguyên để tránh vòng lặp)
 
-                # 2. Kiểm tra lại sau khi đóng cửa sổ login
-                if not Session.is_authenticated():  # SỬA Ở ĐÂY
-                    # Nếu vẫn chưa login
-                    messagebox.showinfo("Thông báo", "Bạn cần đăng nhập để truy cập chức năng này.")
-                    self.notebook.select(0)
-                    self.is_checking_auth = False
-                    return
+            # 1. Đã login thành công (vì đã kiểm tra ở __init__)
+            STAFF_TAB_INDEX = 5 # Tab Nhân viên là index 5
 
-            # 3. Nếu đã login thành công
-            staff_index = self.notebook.index(self.staff_tab)
+            if self.notebook.index("current") != STAFF_TAB_INDEX:
+                self.notebook.select(STAFF_TAB_INDEX)  # Chuyển tab bằng số index
 
-            if self.notebook.index("current") != staff_index:
-                self.notebook.select(staff_index)
+            # 2. Lấy đối tượng frame và load View Nhân viên (Giữ nguyên logic của bạn)
+            tab_id = self.notebook.tabs()[STAFF_TAB_INDEX]
+            self.staff_tab = self.notebook.nametowidget(tab_id)
 
-            # 4. Load View Nhân viên (Xóa placeholder cũ đi)
             is_view_loaded = False
             for child in self.staff_tab.winfo_children():
                 if isinstance(child, StaffView):
@@ -265,9 +280,10 @@ class MainWindow(tk.Tk):
         main_frame.pack(fill='both', expand=True)
 
         # Notebook (tabs)
+
         self.notebook = ttk.Notebook(main_frame)
         self.notebook.pack(fill='both', expand=True, padx=5, pady=5)
-
+        self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_selected)
         # Tab 0: Dashboard (Trang chủ)
         dashboard_frame = DashboardView(self.notebook, navigate_callback=self._show_tab)
         self.notebook.add(dashboard_frame, text="🏠 Trang chủ")
