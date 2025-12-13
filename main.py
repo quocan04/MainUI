@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 def check_dependencies():
     """Kiểm tra các thư viện cần thiết"""
     required_packages = {
-        'mysql': 'mysql-connector-python',
+        'mysql.connector': 'mysql-connector-python',  # ✅ FIX
         'openpyxl': 'openpyxl',
         'reportlab': 'reportlab',
         'dotenv': 'python-dotenv'
@@ -84,7 +84,6 @@ def main():
         app = MainWindow()
 
         logger.info("✅ Application started successfully")
-        logger.info("Dashboard loaded as home screen")
 
         # Start main loop
         app.mainloop()
