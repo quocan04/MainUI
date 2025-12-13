@@ -12,7 +12,7 @@ class DatabaseConfig:
     """Cấu hình kết nối MySQL Database"""
 
     HOST = os.getenv('DB_HOST', '127.0.0.1')
-    PORT = int(os.getenv('DB_PORT', 3307))
+    PORT = int(os.getenv('DB_PORT', 3306))
     USER = os.getenv('DB_USER', 'nvkhoadev')
     PASSWORD = os.getenv('DB_PASSWORD', '05042004')
     DATABASE = os.getenv('DB_NAME', 'library_management')
