@@ -16,10 +16,7 @@ class ReaderService:
         self.validator = Validator()
 
     def validate_reader(self, reader: Reader, is_update: bool = False) -> Tuple[bool, Optional[str]]:
-        """
-        Validate toàn bộ thông tin reader
-        Returns:  (is_valid, error_message)
-        """
+        """Validate toàn bộ thông tin reader"""
         # Validate bằng method của model trước
         is_valid, error = reader.validate()
         if not is_valid:
@@ -76,10 +73,7 @@ class ReaderService:
         return True, None
 
     def create_reader(self, reader: Reader) -> Tuple[bool, Optional[str], Optional[int]]:
-        """
-        Thêm bạn đọc mới
-        Returns: (success, error_message, reader_id)
-        """
+        """Thêm bạn đọc mới"""
         # Validate
         is_valid, error = self.validate_reader(reader, is_update=False)
         if not is_valid:
@@ -87,16 +81,16 @@ class ReaderService:
 
         try:
             query = """
-                    INSERT INTO readers (full_name, address, phone, email, \
-                                         card_start, card_end, status, reputation_score) \
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) \
-                    """
+                INSERT INTO readers (full_name, address, phone, email,
+                                     card_start, card_end, status, reputation_score)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """
 
             params = reader.to_tuple()
             reader_id = db.execute_query(query, params, commit=True)
 
             if reader_id:
-                logger.info(f"✅ Đã thêm bạn đọc:  {reader.full_name} (ID: {reader_id})")
+                logger.info(f"✅ Đã thêm bạn đọc: {reader.full_name} (ID: {reader_id})")
                 return True, None, reader_id
             else:
                 return False, "Không thể thêm bạn đọc vào database", None
@@ -106,10 +100,7 @@ class ReaderService:
             return False, f"Lỗi database: {str(e)}", None
 
     def update_reader(self, reader: Reader) -> Tuple[bool, Optional[str]]:
-        """
-        Cập nhật thông tin bạn đọc
-        Returns: (success, error_message)
-        """
+        """Cập nhật thông tin bạn đọc"""
         if not reader.reader_id:
             return False, "ID bạn đọc không hợp lệ"
 
@@ -120,17 +111,17 @@ class ReaderService:
 
         try:
             query = """
-                    UPDATE readers \
-                    SET full_name        = %s, \
-                        address          = %s, \
-                        phone            = %s, \
-                        email            = %s, \
-                        card_start       = %s, \
-                        card_end         = %s, \
-                        status           = %s, \
-                        reputation_score = %s
-                    WHERE reader_id = %s \
-                    """
+                UPDATE readers
+                SET full_name = %s,
+                    address = %s,
+                    phone = %s,
+                    email = %s,
+                    card_start = %s,
+                    card_end = %s,
+                    status = %s,
+                    reputation_score = %s
+                WHERE reader_id = %s
+            """
 
             params = (
                 reader.full_name,
@@ -154,23 +145,21 @@ class ReaderService:
 
         except Exception as e:
             logger.error(f"❌ Lỗi cập nhật bạn đọc: {e}")
-            return False, f"Lỗi database:  {str(e)}"
+            return False, f"Lỗi database: {str(e)}"
 
     def delete_reader(self, reader_id: int) -> Tuple[bool, Optional[str]]:
-        """
-        Xóa bạn đọc
-        Returns: (success, error_message)
-        """
+        """Xóa bạn đọc"""
         try:
             # Kiểm tra xem bạn đọc có đang mượn sách không
             check_query = """
-                          SELECT COUNT(*) as count
-                          FROM borrow_slips
-                          WHERE reader_id = %s AND status = 'BORROWING' \
-                          """
-            result = db.execute_query(check_query, (reader_id,), fetch_one=True)
+                SELECT COUNT(*) as count
+                FROM borrow_slips
+                WHERE reader_id = %s AND status = 'BORROWING'
+            """
+            # Lấy kết quả đầu tiên
+            result = db.execute_query(check_query, (reader_id,), fetch=True)
 
-            if result and result['count'] > 0:
+            if result and len(result) > 0 and result[0].get('count', 0) > 0:
                 return False, "Không thể xóa bạn đọc đang mượn sách"
 
             # Xóa bạn đọc
@@ -185,7 +174,7 @@ class ReaderService:
 
         except Exception as e:
             logger.error(f"❌ Lỗi xóa bạn đọc: {e}")
-            return False, f"Lỗi database:  {str(e)}"
+            return False, f"Lỗi database: {str(e)}"
 
     def get_all_readers(self) -> List[Reader]:
         """Lấy danh sách tất cả bạn đọc"""
@@ -201,28 +190,25 @@ class ReaderService:
             return readers
 
         except Exception as e:
-            logger.error(f"❌ Lỗi lấy danh sách:  {e}")
+            logger.error(f"❌ Lỗi lấy danh sách: {e}")
             return []
 
     def get_reader_by_id(self, reader_id: int) -> Optional[Reader]:
         """Lấy thông tin bạn đọc theo ID"""
         try:
             query = "SELECT * FROM readers WHERE reader_id = %s"
-            row = db.execute_query(query, (reader_id,), fetch_one=True)
+            rows = db.execute_query(query, (reader_id,), fetch=True)
 
-            if row:
-                return Reader.from_dict(row)
+            if rows and len(rows) > 0:
+                return Reader.from_dict(rows[0])
             return None
 
         except Exception as e:
-            logger.error(f"❌ Lỗi lấy thông tin:  {e}")
+            logger.error(f"❌ Lỗi lấy thông tin: {e}")
             return None
 
     def search_readers(self, keyword: str, search_by: str = "all") -> List[Reader]:
-        """
-        Tìm kiếm bạn đọc
-        search_by: 'all', 'name', 'phone', 'email', 'address'
-        """
+        """Tìm kiếm bạn đọc"""
         try:
             keyword_pattern = f"%{keyword}%"
 
@@ -240,14 +226,14 @@ class ReaderService:
                 params = (keyword_pattern,)
             else:  # search all
                 query = """
-                        SELECT * \
-                        FROM readers
-                        WHERE full_name LIKE %s
-                           OR phone LIKE %s
-                           OR email LIKE %s
-                           OR address LIKE %s
-                        ORDER BY reader_id DESC \
-                        """
+                    SELECT *
+                    FROM readers
+                    WHERE full_name LIKE %s
+                       OR phone LIKE %s
+                       OR email LIKE %s
+                       OR address LIKE %s
+                    ORDER BY reader_id DESC
+                """
                 params = (keyword_pattern, keyword_pattern, keyword_pattern, keyword_pattern)
 
             rows = db.execute_query(query, params, fetch=True)
@@ -325,9 +311,9 @@ class ReaderService:
             }
 
             # Tổng số bạn đọc
-            result = db.execute_query("SELECT COUNT(*) as total FROM readers", fetch_one=True)
-            if result:
-                stats['total'] = result['total']
+            result = db.execute_query("SELECT COUNT(*) as total FROM readers", fetch=True)
+            if result and len(result) > 0:
+                stats['total'] = result[0]['total']
 
             # Số bạn đọc theo trạng thái
             query = "SELECT status, COUNT(*) as count FROM readers GROUP BY status"
@@ -344,36 +330,36 @@ class ReaderService:
                         stats['locked'] = row['count']
 
             # Điểm uy tín trung bình
-            result = db.execute_query("SELECT AVG(reputation_score) as avg_rep FROM readers", fetch_one=True)
-            if result and result['avg_rep']:
-                stats['avg_reputation'] = round(result['avg_rep'], 2)
+            result = db.execute_query("SELECT AVG(reputation_score) as avg_rep FROM readers", fetch=True)
+            if result and len(result) > 0 and result[0]['avg_rep']:
+                stats['avg_reputation'] = round(result[0]['avg_rep'], 2)
 
             # Số thẻ sắp hết hạn (trong 30 ngày)
             date_30_days = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
             query = """
-                    SELECT COUNT(*) as count \
-                    FROM readers
-                    WHERE card_end <= %s AND card_end >= CURDATE() \
-                    """
-            result = db.execute_query(query, (date_30_days,), fetch_one=True)
-            if result:
-                stats['expiring_soon'] = result['count']
+                SELECT COUNT(*) as count
+                FROM readers
+                WHERE card_end <= %s AND card_end >= CURDATE()
+            """
+            result = db.execute_query(query, (date_30_days,), fetch=True)
+            if result and len(result) > 0:
+                stats['expiring_soon'] = result[0]['count']
 
             # Số bạn đọc có điểm uy tín cao (>= 90)
             result = db.execute_query(
                 "SELECT COUNT(*) as count FROM readers WHERE reputation_score >= 90",
-                fetch_one=True
+                fetch=True
             )
-            if result:
-                stats['high_reputation'] = result['count']
+            if result and len(result) > 0:
+                stats['high_reputation'] = result[0]['count']
 
             # Số bạn đọc có điểm uy tín thấp (< 50)
             result = db.execute_query(
                 "SELECT COUNT(*) as count FROM readers WHERE reputation_score < 50",
-                fetch_one=True
+                fetch=True
             )
-            if result:
-                stats['low_reputation'] = result['count']
+            if result and len(result) > 0:
+                stats['low_reputation'] = result[0]['count']
 
             return stats
 
@@ -393,7 +379,7 @@ class ReaderService:
     def update_reader_status(self, reader_id: int, new_status: str) -> Tuple[bool, Optional[str]]:
         """Cập nhật trạng thái bạn đọc"""
         if new_status not in Reader.VALID_STATUSES:
-            return False, f"Trạng thái không hợp lệ.  Phải là:  {', '.join(Reader.VALID_STATUSES)}"
+            return False, f"Trạng thái không hợp lệ. Phải là: {', '.join(Reader.VALID_STATUSES)}"
 
         try:
             query = "UPDATE readers SET status = %s WHERE reader_id = %s"
@@ -439,13 +425,10 @@ class ReaderService:
             if reader.card_end:
                 current_end = datetime.strptime(reader.card_end, '%Y-%m-%d')
                 if current_end > datetime.now():
-                    # Nếu chưa hết hạn, cộng thêm từ ngày hết hạn hiện tại
                     new_end = current_end + timedelta(days=days)
                 else:
-                    # Nếu đã hết hạn, cộng thêm từ hôm nay
                     new_end = datetime.now() + timedelta(days=days)
             else:
-                # Nếu chưa có ngày hết hạn, cộng từ hôm nay
                 new_end = datetime.now() + timedelta(days=days)
 
             new_end_str = new_end.strftime('%Y-%m-%d')
@@ -461,18 +444,18 @@ class ReaderService:
 
         except Exception as e:
             logger.error(f"❌ Lỗi gia hạn thẻ: {e}")
-            return False, f"Lỗi:  {str(e)}"
+            return False, f"Lỗi: {str(e)}"
 
     def check_expired_cards(self) -> List[Reader]:
         """Kiểm tra và trả về danh sách thẻ đã hết hạn"""
         try:
             query = """
-                    SELECT * \
-                    FROM readers
-                    WHERE card_end < CURDATE() \
-                      AND status = 'ACTIVE'
-                    ORDER BY card_end ASC \
-                    """
+                SELECT *
+                FROM readers
+                WHERE card_end < CURDATE()
+                  AND status = 'ACTIVE'
+                ORDER BY card_end ASC
+            """
             rows = db.execute_query(query, fetch=True)
 
             if rows is None:
@@ -490,11 +473,11 @@ class ReaderService:
         """Tự động cập nhật trạng thái EXPIRED cho thẻ đã hết hạn"""
         try:
             query = """
-                    UPDATE readers
-                    SET status = 'EXPIRED'
-                    WHERE card_end < CURDATE() \
-                      AND status = 'ACTIVE' \
-                    """
+                UPDATE readers
+                SET status = 'EXPIRED'
+                WHERE card_end < CURDATE()
+                  AND status = 'ACTIVE'
+            """
             result = db.execute_query(query, commit=True)
 
             if result:
@@ -504,5 +487,5 @@ class ReaderService:
                 return 0, "Không có thẻ nào cần cập nhật"
 
         except Exception as e:
-            logger.error(f"❌ Lỗi cập nhật trạng thái tự động:  {e}")
+            logger.error(f"❌ Lỗi cập nhật trạng thái tự động: {e}")
             return 0, f"Lỗi: {str(e)}"

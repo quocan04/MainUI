@@ -6,6 +6,8 @@ from tkinter import ttk
 from datetime import datetime
 import logging
 
+from controllers.reader_controller import ReaderController
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,9 +17,16 @@ class DashboardView(ttk.Frame):
     def __init__(self, parent, navigate_callback):
         super().__init__(parent)
         self.navigate_callback = navigate_callback
+        self.reader_controller = ReaderController()
+
+        # Statistics variables
+        self.stats_labels = {}
 
         self._create_widgets()
         self._load_statistics()
+
+        # Auto refresh mỗi 30 giây
+        self._schedule_refresh()
 
     def _create_widgets(self):
         """Tạo giao diện Dashboard"""
@@ -33,12 +42,15 @@ class DashboardView(ttk.Frame):
             foreground='#1976D2'
         ).pack(anchor='w')
 
-        ttk.Label(
+        # Clock label
+        self.clock_label = ttk.Label(
             header_frame,
-            text=f"🕐 {datetime.now().strftime('%A, %d/%m/%Y - %H:%M')}",
+            text="",
             font=('Arial', 10),
             foreground='#666'
-        ).pack(anchor='w', pady=(5, 0))
+        )
+        self.clock_label.pack(anchor='w', pady=(5, 0))
+        self._update_clock()
 
         # Main container
         main_container = ttk.Frame(self)
@@ -62,51 +74,135 @@ class DashboardView(ttk.Frame):
         cards_container = ttk.Frame(stats_frame)
         cards_container.pack(fill='x')
 
-        # Statistics data
-        stats = [
-            {"icon": "👥", "title": "Bạn đọc", "value": "0", "color": "#4CAF50", "change": "+0%"},
-            {"icon": "📚", "title": "Sách", "value": "0", "color": "#2196F3", "change": "+0%"},
-            {"icon": "📋", "title": "Đang mượn", "value": "0", "color": "#FF9800", "change": "0"},
-            {"icon": "💰", "title": "Phạt chưa thu", "value": "0₫", "color": "#F44336", "change": "0"}
+        # Statistics data structure
+        self.stats_data = [
+            {
+                "key": "readers",
+                "icon": "👥",
+                "title": "Bạn đọc",
+                "value": "0",
+                "color": "#4CAF50",
+                "subtext": "Đang hoạt động"
+            },
+            {
+                "key": "books",
+                "icon": "📚",
+                "title": "Sách",
+                "value": "0",
+                "color": "#2196F3",
+                "subtext": "Tổng số sách"
+            },
+            {
+                "key": "borrowing",
+                "icon": "📋",
+                "title": "Đang mượn",
+                "value": "0",
+                "color": "#FF9800",
+                "subtext": "Phiếu mượn"
+            },
+            {
+                "key": "expired",
+                "icon": "⏰",
+                "title": "Sắp hết hạn",
+                "value": "0",
+                "color": "#F44336",
+                "subtext": "Thẻ bạn đọc"
+            }
         ]
 
-        for i, stat in enumerate(stats):
+        for i, stat in enumerate(self.stats_data):
             self._create_stat_card(cards_container, stat, i)
 
     def _create_stat_card(self, parent, data, column):
         """Tạo card thống kê"""
-        card = tk.Frame(parent, bg='white', relief='raised', borderwidth=1)
-        card.grid(row=0, column=column, padx=10, pady=10, sticky='ew')
+        card = tk.Frame(parent, bg='white', relief='raised', borderwidth=2)
+        card.grid(row=0, column=column, padx=10, pady=10, sticky='nsew')
         parent.columnconfigure(column, weight=1)
+
+        # Click to navigate
+        if data['key'] == 'readers':
+            card.bind('<Button-1>', lambda e: self.navigate_callback(1))
+            card.config(cursor='hand2')
 
         # Icon
         icon_label = tk.Label(
             card,
             text=data['icon'],
-            font=('Arial', 32),
+            font=('Arial', 36),
             bg='white'
         )
         icon_label.pack(pady=(15, 5))
+        if data['key'] == 'readers':
+            icon_label.bind('<Button-1>', lambda e: self.navigate_callback(1))
+            icon_label.config(cursor='hand2')
 
-        # Value
+        # Value - Store reference
         value_label = tk.Label(
             card,
             text=data['value'],
-            font=('Arial', 24, 'bold'),
+            font=('Arial', 28, 'bold'),
             fg=data['color'],
             bg='white'
         )
         value_label.pack()
+        self.stats_labels[f"{data['key']}_value"] = value_label
+        if data['key'] == 'readers':
+            value_label.bind('<Button-1>', lambda e: self.navigate_callback(1))
+            value_label.config(cursor='hand2')
 
         # Title
         title_label = tk.Label(
             card,
             text=data['title'],
-            font=('Arial', 11),
+            font=('Arial', 12, 'bold'),
+            fg='#333',
+            bg='white'
+        )
+        title_label.pack(pady=(5, 0))
+        if data['key'] == 'readers':
+            title_label.bind('<Button-1>', lambda e: self.navigate_callback(1))
+            title_label.config(cursor='hand2')
+
+        # Subtext - Store reference
+        subtext_label = tk.Label(
+            card,
+            text=data['subtext'],
+            font=('Arial', 9),
             fg='#666',
             bg='white'
         )
-        title_label.pack(pady=(0, 15))
+        subtext_label.pack(pady=(0, 15))
+        self.stats_labels[f"{data['key']}_subtext"] = subtext_label
+        if data['key'] == 'readers':
+            subtext_label.bind('<Button-1>', lambda e: self.navigate_callback(1))
+            subtext_label.config(cursor='hand2')
+
+        # Hover effect for readers card
+        if data['key'] == 'readers':
+            def on_enter(e):
+                card.config(bg='#f0f0f0')
+                icon_label.config(bg='#f0f0f0')
+                value_label.config(bg='#f0f0f0')
+                title_label.config(bg='#f0f0f0')
+                subtext_label.config(bg='#f0f0f0')
+
+            def on_leave(e):
+                card.config(bg='white')
+                icon_label.config(bg='white')
+                value_label.config(bg='white')
+                title_label.config(bg='white')
+                subtext_label.config(bg='white')
+
+            card.bind('<Enter>', on_enter)
+            card.bind('<Leave>', on_leave)
+            icon_label.bind('<Enter>', on_enter)
+            icon_label.bind('<Leave>', on_leave)
+            value_label.bind('<Enter>', on_enter)
+            value_label.bind('<Leave>', on_leave)
+            title_label.bind('<Enter>', on_enter)
+            title_label.bind('<Leave>', on_leave)
+            subtext_label.bind('<Enter>', on_enter)
+            subtext_label.bind('<Leave>', on_leave)
 
     def _create_quick_access_section(self, parent):
         """Tạo phần truy cập nhanh"""
@@ -146,6 +242,7 @@ class DashboardView(ttk.Frame):
             width=15,
             height=4,
             cursor='hand2',
+            relief='flat',
             command=lambda: self.navigate_callback(data['tab'])
         )
         btn.grid(row=row, column=col, padx=15, pady=15, sticky='nsew')
@@ -164,47 +261,106 @@ class DashboardView(ttk.Frame):
 
     def _create_recent_activities_section(self, parent):
         """Tạo phần hoạt động gần đây"""
-        activity_frame = ttk.LabelFrame(parent, text="🕒 Hoạt động gần đây", padding=15)
+        activity_frame = ttk.LabelFrame(parent, text="🕒 Thông tin hệ thống", padding=15)
         activity_frame.pack(fill='both', expand=True)
 
-        # Treeview for activities
-        columns = ('time', 'user', 'action', 'detail')
-        tree = ttk.Treeview(activity_frame, columns=columns, show='headings', height=5)
+        # Info container
+        info_container = ttk.Frame(activity_frame)
+        info_container.pack(fill='both', expand=True)
 
-        tree.heading('time', text='Thời gian')
-        tree.heading('user', text='Người thực hiện')
-        tree.heading('action', text='Hành động')
-        tree.heading('detail', text='Chi tiết')
-
-        tree.column('time', width=150)
-        tree.column('user', width=150)
-        tree.column('action', width=150)
-        tree.column('detail', width=300)
-
-        # Scrollbar
-        scrollbar = ttk.Scrollbar(activity_frame, orient='vertical', command=tree.yview)
-        tree.configure(yscrollcommand=scrollbar.set)
-
-        tree.pack(side='left', fill='both', expand=True)
-        scrollbar.pack(side='right', fill='y')
-
-        # Sample data
-        activities = [
-            (datetime.now().strftime('%H:%M:%S'), 'Admin', 'Đăng nhập', 'Đăng nhập vào hệ thống'),
+        # System info
+        info_items = [
+            ("📅 Ngày khởi động:", datetime.now().strftime('%d/%m/%Y %H:%M:%S')),
+            ("👤 Người dùng:", "Administrator"),
+            ("💾 Database:", "MySQL - Connected"),
+            ("📊 Phiên bản:", "v1.0.0"),
+            ("🔄 Trạng thái:", "🟢 Hoạt động bình thường")
         ]
 
-        for activity in activities:
-            tree.insert('', 'end', values=activity)
+        for i, (label, value) in enumerate(info_items):
+            item_frame = ttk.Frame(info_container)
+            item_frame.pack(fill='x', pady=8)
+
+            ttk.Label(
+                item_frame,
+                text=label,
+                font=('Arial', 10, 'bold'),
+                foreground='#666'
+            ).pack(side='left', padx=(0, 10))
+
+            ttk.Label(
+                item_frame,
+                text=value,
+                font=('Arial', 10),
+                foreground='#1976D2'
+            ).pack(side='left')
+
+        # Refresh button
+        refresh_btn = ttk.Button(
+            activity_frame,
+            text="🔄 Làm mới thống kê",
+            command=self._load_statistics
+        )
+        refresh_btn.pack(pady=(15, 0))
 
     def _load_statistics(self):
         """Load dữ liệu thống kê từ database"""
         try:
-            # TODO: Implement actual database queries
-            # from controllers.reader_controller import ReaderController
-            # reader_count = ReaderController.count_all()
-            pass
+            # Lấy thống kê bạn đọc
+            reader_stats = self.reader_controller.get_statistics()
+
+            # Cập nhật số liệu
+            total_readers = reader_stats.get('total', 0)
+            active_readers = reader_stats.get('active', 0)
+            expiring_soon = reader_stats.get('expiring_soon', 0)
+
+            # Update readers card
+            if 'readers_value' in self.stats_labels:
+                self.stats_labels['readers_value'].config(text=str(total_readers))
+            if 'readers_subtext' in self.stats_labels:
+                self.stats_labels['readers_subtext'].config(
+                    text=f"{active_readers} đang hoạt động"
+                )
+
+            # Update expired card
+            if 'expired_value' in self.stats_labels:
+                self.stats_labels['expired_value'].config(text=str(expiring_soon))
+            if 'expired_subtext' in self.stats_labels:
+                self.stats_labels['expired_subtext'].config(
+                    text=f"Trong 30 ngày tới"
+                )
+
+            # TODO: Cập nhật sách và mượn sách khi có controller
+            # book_stats = self.book_controller.get_statistics()
+            # self.stats_labels['books_value'].config(text=str(book_stats['total']))
+
+            logger.info("✅ Đã cập nhật thống kê Dashboard")
+
         except Exception as e:
-            logger.error(f"Error loading statistics: {e}")
+            logger.error(f"❌ Lỗi load thống kê Dashboard: {e}")
+
+    def _update_clock(self):
+        """Cập nhật đồng hồ"""
+        now = datetime.now()
+        weekdays = {
+            0: 'Thứ Hai',
+            1: 'Thứ Ba',
+            2: 'Thứ Tư',
+            3: 'Thứ Năm',
+            4: 'Thứ Sáu',
+            5: 'Thứ Bảy',
+            6: 'Chủ Nhật'
+        }
+        weekday = weekdays[now.weekday()]
+        time_str = f"🕐 {weekday}, {now.strftime('%d/%m/%Y - %H:%M:%S')}"
+        self.clock_label.config(text=time_str)
+        self.after(1000, self._update_clock)
+
+    def _schedule_refresh(self):
+        """Lên lịch tự động refresh thống kê"""
+        self._load_statistics()
+        # Refresh mỗi 30 giây
+        self.after(30000, self._schedule_refresh)
 
     def _darken_color(self, hex_color, factor=0.8):
         """Làm tối màu"""

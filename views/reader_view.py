@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from typing import Optional, List
 import logging
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class ReaderView(ttk.Frame):
-    """Giao diện quản lý bạn đọc"""
+    """Giao diện quản lý bạn đọc - Enhanced Version"""
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -20,9 +20,13 @@ class ReaderView(ttk.Frame):
         self.msg_helper = MessageBoxHelper()
         self.current_readers: List[Reader] = []
         self.selected_reader: Optional[Reader] = None
+        self.search_after_id = None  # For debouncing
 
         self._create_widgets()
         self._load_data()
+
+        # Auto-refresh every 5 minutes
+        self._schedule_auto_refresh()
 
     def _create_widgets(self):
         """Tạo giao diện"""
@@ -30,40 +34,50 @@ class ReaderView(ttk.Frame):
         toolbar = ttk.Frame(self, relief='raised', borderwidth=1)
         toolbar.pack(fill='x', padx=5, pady=5)
 
-        # Left buttons
+        # Left buttons - CRUD
         left_frame = ttk.Frame(toolbar)
         left_frame.pack(side='left')
 
-        ttk.Button(
+        # Thêm mới
+        self.btn_add = ttk.Button(
             left_frame,
-            text="➕ Thêm mới",
+            text="➕ Thêm mới (Ctrl+N)",
             command=self._show_add_dialog,
-            width=12
-        ).pack(side='left', padx=2, pady=3)
+            width=18
+        )
+        self.btn_add.pack(side='left', padx=2, pady=3)
 
-        ttk.Button(
+        # Sửa
+        self.btn_edit = ttk.Button(
             left_frame,
-            text="✏️ Sửa",
+            text="✏️ Sửa (Enter)",
             command=self._show_edit_dialog,
-            width=12
-        ).pack(side='left', padx=2, pady=3)
+            width=15,
+            state='disabled'
+        )
+        self.btn_edit.pack(side='left', padx=2, pady=3)
 
-        ttk.Button(
+        # Xóa
+        self.btn_delete = ttk.Button(
             left_frame,
-            text="🗑️ Xóa",
+            text="🗑️ Xóa (Delete)",
             command=self._delete_reader,
-            width=12
-        ).pack(side='left', padx=2, pady=3)
+            width=15,
+            state='disabled'
+        )
+        self.btn_delete.pack(side='left', padx=2, pady=3)
 
         ttk.Separator(left_frame, orient='vertical').pack(side='left', fill='y', padx=5)
 
+        # Làm mới
         ttk.Button(
             left_frame,
-            text="🔄 Làm mới",
+            text="🔄 Làm mới (F5)",
             command=self._load_data,
-            width=12
+            width=15
         ).pack(side='left', padx=2, pady=3)
 
+        # Thống kê
         ttk.Button(
             left_frame,
             text="📊 Thống kê",
@@ -71,73 +85,78 @@ class ReaderView(ttk.Frame):
             width=12
         ).pack(side='left', padx=2, pady=3)
 
+        # Xem chi tiết
+        self.btn_detail = ttk.Button(
+            left_frame,
+            text="ℹ️ Chi tiết",
+            command=self._show_detail,
+            width=12,
+            state='disabled'
+        )
+        self.btn_detail.pack(side='left', padx=2, pady=3)
+
         # Right buttons - Export
         right_frame = ttk.Frame(toolbar)
         right_frame.pack(side='right')
 
-        ttk.Label(right_frame, text="Xuất:", font=('Arial', 9)).pack(side='left', padx=5)
+        ttk.Label(right_frame, text="📤 Xuất:", font=('Arial', 9, 'bold')).pack(side='left', padx=5)
 
         ttk.Button(
             right_frame,
-            text="📄 JSON",
+            text="JSON",
             command=self._export_json,
-            width=10
+            width=8
         ).pack(side='left', padx=2, pady=3)
 
         ttk.Button(
             right_frame,
-            text="📊 CSV",
+            text="CSV",
             command=self._export_csv,
-            width=10
+            width=8
         ).pack(side='left', padx=2, pady=3)
 
         ttk.Button(
             right_frame,
-            text="📗 Excel",
+            text="Excel",
             command=self._export_excel,
-            width=10
+            width=8
         ).pack(side='left', padx=2, pady=3)
 
         ttk.Button(
             right_frame,
-            text="📕 PDF",
+            text="PDF",
             command=self._export_pdf,
-            width=10
+            width=8
         ).pack(side='left', padx=2, pady=3)
 
         # ========== SEARCH & FILTER FRAME ==========
-        search_frame = ttk.LabelFrame(self, text="🔍 Tìm kiếm & Lọc", padding=10)
+        search_frame = ttk.LabelFrame(self, text="🔍 Tìm kiếm & Lọc nâng cao", padding=10)
         search_frame.pack(fill='x', padx=5, pady=5)
 
-        # Row 1:  Tìm kiếm
+        # Row 1: Tìm kiếm
         row1 = ttk.Frame(search_frame)
         row1.pack(fill='x', pady=5)
 
-        ttk.Label(row1, text="Từ khóa:", font=('Arial', 9)).pack(side='left', padx=(0, 5))
+        ttk.Label(row1, text="🔎 Từ khóa:", font=('Arial', 9, 'bold')).pack(side='left', padx=(0, 5))
 
         self.search_var = tk.StringVar()
-        search_entry = ttk.Entry(row1, textvariable=self.search_var, width=35, font=('Arial', 9))
-        search_entry.pack(side='left', padx=(0, 5))
-        search_entry.bind('<Return>', lambda e: self._search())
-        search_entry.bind('<KeyRelease>', self._on_search_key_release)
+        self.search_entry = ttk.Entry(row1, textvariable=self.search_var, width=35, font=('Arial', 10))
+        self.search_entry.pack(side='left', padx=(0, 5))
+        self.search_entry.bind('<Return>', lambda e: self._search())
+        self.search_entry.bind('<KeyRelease>', self._on_search_key_release)
 
         ttk.Label(row1, text="Tìm theo:", font=('Arial', 9)).pack(side='left', padx=(15, 5))
 
         self.search_by_var = tk.StringVar(value="all")
-        ttk.Combobox(
+        search_by_combo = ttk.Combobox(
             row1,
             textvariable=self.search_by_var,
-            values=[
-                ("all", "Tất cả"),
-                ("name", "Họ tên"),
-                ("phone", "Điện thoại"),
-                ("email", "Email"),
-                ("address", "Địa chỉ")
-            ],
+            values=["all", "name", "phone", "email", "address"],
             state='readonly',
             width=15,
             font=('Arial', 9)
-        ).pack(side='left', padx=(0, 5))
+        )
+        search_by_combo.pack(side='left', padx=(0, 5))
 
         ttk.Button(
             row1,
@@ -148,16 +167,20 @@ class ReaderView(ttk.Frame):
 
         ttk.Button(
             row1,
-            text="↺ Reset",
+            text="↺ Xóa",
             command=self._reset_search,
             width=10
         ).pack(side='left', padx=2)
+
+        # Search result label
+        self.search_result_label = ttk.Label(row1, text="", font=('Arial', 9), foreground='#1976D2')
+        self.search_result_label.pack(side='left', padx=10)
 
         # Row 2: Lọc
         row2 = ttk.Frame(search_frame)
         row2.pack(fill='x', pady=5)
 
-        ttk.Label(row2, text="Trạng thái:", font=('Arial', 9)).pack(side='left', padx=(0, 5))
+        ttk.Label(row2, text="📋 Trạng thái:", font=('Arial', 9, 'bold')).pack(side='left', padx=(0, 5))
 
         self.filter_status_var = tk.StringVar(value="Tất cả")
         ttk.Combobox(
@@ -169,7 +192,7 @@ class ReaderView(ttk.Frame):
             font=('Arial', 9)
         ).pack(side='left', padx=(0, 5))
 
-        ttk.Label(row2, text="Điểm uy tín:", font=('Arial', 9)).pack(side='left', padx=(15, 5))
+        ttk.Label(row2, text="⭐ Điểm uy tín:", font=('Arial', 9, 'bold')).pack(side='left', padx=(15, 5))
 
         ttk.Label(row2, text="Từ:", font=('Arial', 9)).pack(side='left', padx=(0, 5))
         self.filter_min_rep_var = tk.IntVar(value=0)
@@ -196,7 +219,7 @@ class ReaderView(ttk.Frame):
         self.filter_expiring_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(
             row2,
-            text="Sắp hết hạn (30 ngày)",
+            text="⚠️ Sắp hết hạn (30 ngày)",
             variable=self.filter_expiring_var,
             onvalue=True,
             offvalue=False
@@ -204,16 +227,57 @@ class ReaderView(ttk.Frame):
 
         ttk.Button(
             row2,
-            text="🔎 Lọc",
+            text="🔎 Áp dụng lọc",
             command=self._filter,
-            width=10
+            width=13
         ).pack(side='left', padx=5)
 
         ttk.Button(
             row2,
-            text="🔃 Reset Lọc",
+            text="🔃 Xóa lọc",
             command=self._reset_filter,
             width=12
+        ).pack(side='left', padx=2)
+
+        # Row 3: Quick filters (preset filters)
+        row3 = ttk.Frame(search_frame)
+        row3.pack(fill='x', pady=5)
+
+        ttk.Label(row3, text="🚀 Lọc nhanh:", font=('Arial', 9, 'bold')).pack(side='left', padx=(0, 10))
+
+        ttk.Button(
+            row3,
+            text="🟢 Đang hoạt động",
+            command=lambda: self._quick_filter('ACTIVE'),
+            width=15
+        ).pack(side='left', padx=2)
+
+        ttk.Button(
+            row3,
+            text="🔴 Hết hạn",
+            command=lambda: self._quick_filter('EXPIRED'),
+            width=12
+        ).pack(side='left', padx=2)
+
+        ttk.Button(
+            row3,
+            text="🔒 Đã khóa",
+            command=lambda: self._quick_filter('LOCKED'),
+            width=12
+        ).pack(side='left', padx=2)
+
+        ttk.Button(
+            row3,
+            text="⭐ Uy tín cao (≥90)",
+            command=self._filter_high_reputation,
+            width=17
+        ).pack(side='left', padx=2)
+
+        ttk.Button(
+            row3,
+            text="❌ Uy tín thấp (<50)",
+            command=self._filter_low_reputation,
+            width=17
         ).pack(side='left', padx=2)
 
         # ========== TABLE FRAME ==========
@@ -234,17 +298,9 @@ class ReaderView(ttk.Frame):
             height=15
         )
 
-        # Định nghĩa columns
-        self.tree.heading('ID', text='ID')
-        self.tree.heading('Họ tên', text='Họ tên')
-        self.tree.heading('Điện thoại', text='Điện thoại')
-        self.tree.heading('Email', text='Email')
-        self.tree.heading('Địa chỉ', text='Địa chỉ')
-        self.tree.heading('Ngày cấp thẻ', text='Ngày cấp thẻ')
-        self.tree.heading('Ngày hết hạn', text='Ngày hết hạn')
-        self.tree.heading('Còn lại', text='Còn lại (ngày)')
-        self.tree.heading('Trạng thái', text='Trạng thái')
-        self.tree.heading('Điểm UT', text='Điểm UT')
+        # Định nghĩa columns với sorting
+        for col in columns:
+            self.tree.heading(col, text=col, command=lambda c=col: self._sort_column(c))
 
         # Cấu hình độ rộng cột
         self.tree.column('ID', width=50, anchor='center')
@@ -275,31 +331,34 @@ class ReaderView(ttk.Frame):
         self.context_menu = tk.Menu(self.tree, tearoff=0)
         self.context_menu.add_command(label="✏️ Sửa", command=self._show_edit_dialog)
         self.context_menu.add_command(label="🗑️ Xóa", command=self._delete_reader)
+        self.context_menu.add_command(label="ℹ️ Chi tiết", command=self._show_detail)
         self.context_menu.add_separator()
         self.context_menu.add_command(label="🔒 Khóa", command=self._lock_reader)
         self.context_menu.add_command(label="🔓 Mở khóa", command=self._unlock_reader)
         self.context_menu.add_separator()
         self.context_menu.add_command(label="📅 Gia hạn thẻ", command=self._extend_card)
         self.context_menu.add_separator()
-        self.context_menu.add_command(label="ℹ️ Chi tiết", command=self._show_detail)
+        self.context_menu.add_command(label="🔄 Làm mới", command=self._load_data)
 
         # Bind events
         self.tree.bind('<<TreeviewSelect>>', self._on_select)
         self.tree.bind('<Double-1>', lambda e: self._show_edit_dialog())
-        self.tree.bind('<Button-3>', self._show_context_menu)  # Right click
+        self.tree.bind('<Button-3>', self._show_context_menu)
         self.tree.bind('<Delete>', lambda e: self._delete_reader())
+        self.tree.bind('<Return>', lambda e: self._show_edit_dialog())
 
         # ========== DETAIL FRAME ==========
-        detail_frame = ttk.LabelFrame(self, text="ℹ️ Chi tiết bạn đọc", padding=10)
+        detail_frame = ttk.LabelFrame(self, text="ℹ️ Thông tin chi tiết", padding=10)
         detail_frame.pack(fill='x', padx=5, pady=5)
 
         self.detail_text = tk.Text(
             detail_frame,
             height=4,
             wrap='word',
-            font=('Arial', 9),
+            font=('Consolas', 9),
             state='disabled',
-            background='#f5f5f5'
+            background='#f9f9f9',
+            relief='flat'
         )
         self.detail_text.pack(fill='x')
 
@@ -309,27 +368,49 @@ class ReaderView(ttk.Frame):
 
         self.status_label = ttk.Label(
             status_bar,
-            text="Sẵn sàng",
+            text="✅ Sẵn sàng",
             font=('Arial', 9)
         )
         self.status_label.pack(side='left', padx=5)
 
         self.count_label = ttk.Label(
             status_bar,
-            text="Tổng:  0 bạn đọc",
-            font=('Arial', 9, 'bold')
+            text="Tổng: 0 bạn đọc",
+            font=('Arial', 9, 'bold'),
+            foreground='#1976D2'
         )
         self.count_label.pack(side='right', padx=5)
+
+        # Selected count label
+        self.selected_label = ttk.Label(
+            status_bar,
+            text="",
+            font=('Arial', 9),
+            foreground='#666'
+        )
+        self.selected_label.pack(side='right', padx=10)
+
+        # Keyboard shortcuts
+        self.bind_all('<Control-n>', lambda e: self._show_add_dialog())
+        self.bind_all('<F5>', lambda e: self._load_data())
+        self.bind_all('<Control-f>', lambda e: self.search_entry.focus())
 
     def _load_data(self):
         """Load dữ liệu từ database"""
         try:
+            self.status_label.config(text="⏳ Đang tải dữ liệu...")
+            self.update_idletasks()
+
             self.current_readers = self.controller.get_all_readers()
             self._populate_tree(self.current_readers)
-            self.status_label.config(text="✅ Đã tải dữ liệu thành công")
+
+            self.status_label.config(text=f"✅ Đã tải {len(self.current_readers)} bạn đọc")
+            self.search_result_label.config(text="")
+
             logger.info(f"Loaded {len(self.current_readers)} readers")
         except Exception as e:
-            self.msg_helper.show_error("Lỗi", f"Không thể tải dữ liệu: {str(e)}")
+            self.status_label.config(text="❌ Lỗi tải dữ liệu")
+            self.msg_helper.show_error("Lỗi", f"Không thể tải dữ liệu: {str(e)}", parent=self)
             logger.error(f"Error loading data: {e}")
 
     def _populate_tree(self, readers: List[Reader]):
@@ -340,27 +421,25 @@ class ReaderView(ttk.Frame):
 
         # Thêm dữ liệu mới
         for reader in readers:
-            # Tính số ngày còn lại
             days_left = reader.get_days_until_expiry()
             days_display = str(days_left) if days_left is not None else "N/A"
 
             values = (
                 reader.reader_id,
                 reader.full_name or '',
-                reader.phone or '',
-                reader.email or '',
-                (reader.address or '')[:50] + '...' if reader.address and len(reader.address) > 50 else (
-                            reader.address or ''),
-                reader.card_start or '',
-                reader.card_end or '',
+                reader.phone or 'N/A',
+                reader.email or 'N/A',
+                (reader.address or 'N/A')[:50] + '...' if reader.address and len(reader.address) > 50 else (
+                            reader.address or 'N/A'),
+                reader.card_start or 'N/A',
+                reader.card_end or 'N/A',
                 days_display,
                 get_status_display_map().get(reader.status, reader.status),
                 reader.reputation_score
             )
 
-            # Thêm tag màu theo trạng thái và điểm uy tín
+            # Tags cho màu sắc
             tags = []
-
             if reader.status == 'ACTIVE':
                 tags.append('active')
             elif reader.status == 'EXPIRED':
@@ -373,7 +452,6 @@ class ReaderView(ttk.Frame):
             elif reader.reputation_score < 50:
                 tags.append('low_rep')
 
-            # Thẻ sắp hết hạn
             if days_left is not None and 0 <= days_left <= 7:
                 tags.append('expiring_soon')
 
@@ -389,15 +467,45 @@ class ReaderView(ttk.Frame):
 
         # Cập nhật count
         self.count_label.config(text=f"Tổng: {len(readers)} bạn đọc")
+        self._update_button_states()
 
     def _on_select(self, event):
         """Xử lý khi chọn 1 dòng"""
         selection = self.tree.selection()
         if selection:
-            item = self.tree.item(selection[0])
-            reader_id = item['values'][0]
-            self.selected_reader = self.controller.get_reader_by_id(reader_id)
-            self._update_detail_panel()
+            try:
+                item = self.tree.item(selection[0])
+                reader_id = item['values'][0]
+                self.selected_reader = self.controller.get_reader_by_id(reader_id)
+
+                if self.selected_reader:
+                    self._update_detail_panel()
+                    self._update_button_states()
+                    self.selected_label.config(text=f"✓ Đã chọn: {self.selected_reader.full_name}")
+                else:
+                    self.selected_reader = None
+                    self._update_button_states()
+                    self.selected_label.config(text="")
+                    self.status_label.config(text="⚠️ Không tìm thấy thông tin bạn đọc")
+            except Exception as e:
+                logger.error(f"Error in _on_select: {e}")
+                self.selected_reader = None
+                self._update_button_states()
+                self.selected_label.config(text="")
+                self.status_label.config(text=f"❌ Lỗi: {str(e)}")
+        else:
+            self.selected_reader = None
+            self._update_button_states()
+            self.selected_label.config(text="")
+
+    def _update_button_states(self):
+        """Cập nhật trạng thái các button"""
+        has_selection = self.selected_reader is not None
+        state = 'normal' if has_selection else 'disabled'
+
+        self.btn_edit.config(state=state)
+        self.btn_delete.config(state=state)
+        self.btn_detail.config(state=state)
 
     def _update_detail_panel(self):
         """Cập nhật panel chi tiết"""
@@ -405,35 +513,30 @@ class ReaderView(ttk.Frame):
         self.detail_text.delete('1.0', 'end')
 
         if self.selected_reader:
-            detail = f"""📋 ID: {self.selected_reader.reader_id} | 👤 {self.selected_reader.full_name}
-📞 {self.selected_reader.phone or 'N/A'} | 📧 {self.selected_reader.email or 'N/A'}
-📍 {self.selected_reader.address or 'N/A'}
-📅 Thẻ: {self.selected_reader.card_start} → {self.selected_reader.card_end} | {self.selected_reader.get_card_validity_info()}
-🎯 Trạng thái: {self.selected_reader.get_status_display()} | ⭐ Uy tín: {self.selected_reader.reputation_score}/100 ({self.selected_reader.get_reputation_level()})"""
-
+            r = self.selected_reader
+            detail = f"""📋 ID: {r.reader_id} | 👤 {r.full_name} | 📞 {r.phone or 'N/A'} | 📧 {r.email or 'N/A'}
+📍 Địa chỉ: {r.address or 'N/A'}
+📅 Thẻ: {r.card_start} → {r.card_end} | {r.get_card_validity_info()}
+🎯 {r.get_status_display()} | ⭐ Uy tín: {r.reputation_score}/100 ({r.get_reputation_level()})"""
             self.detail_text.insert('1.0', detail)
 
         self.detail_text.config(state='disabled')
 
     def _show_context_menu(self, event):
         """Hiển thị context menu"""
-        # Select item under cursor
         item = self.tree.identify_row(event.y)
         if item:
             self.tree.selection_set(item)
             self.context_menu.post(event.x_root, event.y_root)
 
     def _on_search_key_release(self, event):
-        """Auto search khi gõ (debounced)"""
-        # Cancel previous scheduled search
-        if hasattr(self, '_search_after_id'):
-            self.after_cancel(self._search_after_id)
-
-        # Schedule new search after 500ms
-        self._search_after_id = self.after(500, self._search)
+        """Auto search với debouncing"""
+        if self.search_after_id:
+            self.after_cancel(self.search_after_id)
+        self.search_after_id = self.after(500, self._search)
 
     def _search(self):
-        """Tìm kiếm"""
+        """Tìm kiếm bạn đọc"""
         keyword = self.search_var.get().strip()
         search_by = self.search_by_var.get()
 
@@ -442,21 +545,41 @@ class ReaderView(ttk.Frame):
             return
 
         try:
+            self.status_label.config(text=f"🔍 Đang tìm kiếm '{keyword}'...")
+            self.update_idletasks()
+
             readers = self.controller.search_readers(keyword, search_by)
             self._populate_tree(readers)
-            self.status_label.config(text=f"🔍 Tìm thấy {len(readers)} kết quả")
+
+            if readers:
+                self.status_label.config(text=f"✅ Hoàn tất tìm kiếm")
+                self.search_result_label.config(
+                    text=f"🎯 Tìm thấy {len(readers)} kết quả",
+                    foreground='#4CAF50'
+                )
+            else:
+                self.status_label.config(text="⚠️ Không tìm thấy")
+                self.search_result_label.config(
+                    text="❌ Không có kết quả",
+                    foreground='#F44336'
+                )
         except Exception as e:
-            self.msg_helper.show_error("Lỗi tìm kiếm", str(e))
+            self.status_label.config(text="❌ Lỗi tìm kiếm")
+            self.msg_helper.show_error("Lỗi tìm kiếm", str(e), parent=self)
 
     def _reset_search(self):
         """Reset tìm kiếm"""
         self.search_var.set("")
         self.search_by_var.set("all")
+        self.search_result_label.config(text="")
         self._load_data()
 
     def _filter(self):
         """Lọc dữ liệu"""
         try:
+            self.status_label.config(text="🔎 Đang lọc dữ liệu...")
+            self.update_idletasks()
+
             status = self.filter_status_var.get()
             status = None if status == "Tất cả" else status
 
@@ -470,10 +593,16 @@ class ReaderView(ttk.Frame):
                 max_reputation=max_rep,
                 expiring_soon=expiring
             )
+
             self._populate_tree(readers)
-            self.status_label.config(text=f"🔎 Lọc được {len(readers)} kết quả")
+            self.status_label.config(text=f"✅ Đã lọc: {len(readers)} kết quả")
+            self.search_result_label.config(
+                text=f"📊 {len(readers)} bạn đọc phù hợp",
+                foreground='#1976D2'
+            )
         except Exception as e:
-            self.msg_helper.show_error("Lỗi lọc", str(e))
+            self.status_label.config(text="❌ Lỗi lọc")
+            self.msg_helper.show_error("Lỗi lọc", str(e), parent=self)
 
     def _reset_filter(self):
         """Reset bộ lọc"""
@@ -481,7 +610,37 @@ class ReaderView(ttk.Frame):
         self.filter_min_rep_var.set(0)
         self.filter_max_rep_var.set(100)
         self.filter_expiring_var.set(False)
+        self.search_result_label.config(text="")
         self._load_data()
+
+    def _quick_filter(self, status: str):
+        """Lọc nhanh theo trạng thái"""
+        self.filter_status_var.set(status)
+        self.filter_min_rep_var.set(0)
+        self.filter_max_rep_var.set(100)
+        self.filter_expiring_var.set(False)
+        self._filter()
+
+    def _filter_high_reputation(self):
+        """Lọc bạn đọc có uy tín cao"""
+        self.filter_status_var.set("Tất cả")
+        self.filter_min_rep_var.set(90)
+        self.filter_max_rep_var.set(100)
+        self.filter_expiring_var.set(False)
+        self._filter()
+
+    def _filter_low_reputation(self):
+        """Lọc bạn đọc có uy tín thấp"""
+        self.filter_status_var.set("Tất cả")
+        self.filter_min_rep_var.set(0)
+        self.filter_max_rep_var.set(49)
+        self.filter_expiring_var.set(False)
+        self._filter()
+
+    def _sort_column(self, col):
+        """Sắp xếp theo cột"""
+        # TODO: Implement sorting
+        pass
 
     def _show_add_dialog(self):
         """Hiển thị dialog thêm mới"""
@@ -549,35 +708,78 @@ class ReaderView(ttk.Frame):
 
         # Dialog nhập số ngày
         dialog = tk.Toplevel(self)
-        dialog.title("📅 Gia hạn thẻ")
-        dialog.geometry("300x150")
+        dialog.title("📅 Gia hạn thẻ thư viện")
+        dialog.geometry("400x200")
         dialog.resizable(False, False)
         dialog.transient(self)
         dialog.grab_set()
 
+        # Header
+        header = tk.Frame(dialog, bg='#1976D2', height=60)
+        header.pack(fill='x')
+        header.pack_propagate(False)
+
+        tk.Label(
+            header,
+            text=f"📅 GIA HẠN THẺ",
+            font=('Arial', 14, 'bold'),
+            fg='white',
+            bg='#1976D2'
+        ).pack(expand=True)
+
+        # Content
+        content = ttk.Frame(dialog, padding=20)
+        content.pack(fill='both', expand=True)
+
         ttk.Label(
-            dialog,
-            text=f"Gia hạn thẻ cho:\n{self.selected_reader.full_name}",
+            content,
+            text=f"Bạn đọc: {self.selected_reader.full_name}",
             font=('Arial', 10, 'bold')
-        ).pack(pady=10)
+        ).pack(pady=(0, 10))
 
-        frame = ttk.Frame(dialog)
-        frame.pack(pady=10)
+        ttk.Label(
+            content,
+            text=f"Ngày hết hạn hiện tại: {self.selected_reader.card_end}",
+            font=('Arial', 9)
+        ).pack(pady=(0, 15))
 
-        ttk.Label(frame, text="Số ngày: ").pack(side='left', padx=5)
+        # Days input
+        days_frame = ttk.Frame(content)
+        days_frame.pack(pady=10)
+
+        ttk.Label(days_frame, text="Số ngày gia hạn:", font=('Arial', 10)).pack(side='left', padx=(0, 10))
         days_var = tk.IntVar(value=365)
-        ttk.Spinbox(frame, from_=1, to=3650, textvariable=days_var, width=10).pack(side='left')
+        ttk.Spinbox(
+            days_frame,
+            from_=1,
+            to=3650,
+            textvariable=days_var,
+            width=12,
+            font=('Arial', 10)
+        ).pack(side='left')
 
-        btn_frame = ttk.Frame(dialog)
-        btn_frame.pack(pady=10)
+        # Buttons
+        btn_frame = ttk.Frame(content)
+        btn_frame.pack(pady=15)
 
         def do_extend():
             if self.controller.extend_card(self.selected_reader.reader_id, days_var.get(), parent=self):
                 self._load_data()
                 dialog.destroy()
 
-        ttk.Button(btn_frame, text="Gia hạn", command=do_extend, width=10).pack(side='left', padx=5)
-        ttk.Button(btn_frame, text="Hủy", command=dialog.destroy, width=10).pack(side='left', padx=5)
+        ttk.Button(
+            btn_frame,
+            text="✅ Xác nhận",
+            command=do_extend,
+            width=12
+        ).pack(side='left', padx=5)
+
+        ttk.Button(
+            btn_frame,
+            text="❌ Hủy",
+            command=dialog.destroy,
+            width=12
+        ).pack(side='left', padx=5)
 
     def _show_detail(self):
         """Hiển thị chi tiết đầy đủ"""
@@ -589,134 +791,211 @@ class ReaderView(ttk.Frame):
 
         detail_window = tk.Toplevel(self)
         detail_window.title(f"ℹ️ Chi tiết - {reader.full_name}")
-        detail_window.geometry("600x500")
+        detail_window.geometry("650x550")
         detail_window.transient(self)
+        detail_window.grab_set()
 
+        # Header
+        header = tk.Frame(detail_window, bg='#1976D2', height=80)
+        header.pack(fill='x')
+        header.pack_propagate(False)
+
+        tk.Label(
+            header,
+            text=f"📋 THÔNG TIN CHI TIẾT BẠN ĐỌC",
+            font=('Arial', 16, 'bold'),
+            fg='white',
+            bg='#1976D2'
+        ).pack(expand=True)
+
+        # Main content
         main_frame = ttk.Frame(detail_window, padding=20)
         main_frame.pack(fill='both', expand=True)
 
-        # Title
-        ttk.Label(
-            main_frame,
-            text=f"📋 CHI TIẾT BẠN ĐỌC",
-            font=('Arial', 14, 'bold'),
-            foreground='#1976D2'
-        ).pack(pady=(0, 20))
+        # Info sections
+        sections = [
+            ("👤 Thông tin cá nhân", [
+                f"🆔 Mã bạn đọc: {reader.reader_id}",
+                f"👤 Họ và tên: {reader.full_name}",
+                f"📞 Điện thoại: {reader.phone or 'Chưa cập nhật'}",
+                f"📧 Email: {reader.email or 'Chưa cập nhật'}",
+                f"📍 Địa chỉ: {reader.address or 'Chưa cập nhật'}"
+            ]),
+            ("📇 Thông tin thẻ", [
+                f"📅 Ngày cấp thẻ: {reader.card_start}",
+                f"📅 Ngày hết hạn: {reader.card_end}",
+                f"⏰ Tình trạng: {reader.get_card_validity_info()}",
+                f"📊 Số ngày còn lại: {reader.get_days_until_expiry() if reader.get_days_until_expiry() is not None else 'N/A'}"
+            ]),
+            ("⚙️ Trạng thái tài khoản", [
+                f"🎯 Trạng thái: {reader.get_status_display()}",
+                f"⭐ Điểm uy tín: {reader.reputation_score}/100",
+                f"🏆 Xếp loại: {reader.get_reputation_level()}",
+                f"✓ Đang hoạt động: {'Có' if reader.is_active() else 'Không'}",
+                f"⚠ Đã hết hạn: {'Có' if reader.is_expired() else 'Không'}",
+                f"🔒 Bị khóa: {'Có' if reader.is_locked() else 'Không'}"
+            ])
+        ]
 
-        # Info frame
-        info_frame = ttk.Frame(main_frame)
-        info_frame.pack(fill='both', expand=True)
+        for section_title, items in sections:
+            section_frame = ttk.LabelFrame(main_frame, text=section_title, padding=15)
+            section_frame.pack(fill='x', pady=10)
 
-        info_text = f"""
-🆔 ID: {reader.reader_id}
-👤 Họ tên: {reader.full_name}
-📞 Điện thoại: {reader.phone or 'N/A'}
-📧 Email: {reader.email or 'N/A'}
-📍 Địa chỉ: {reader.address or 'N/A'}
+            for item in items:
+                ttk.Label(
+                    section_frame,
+                    text=item,
+                    font=('Arial', 10)
+                ).pack(anchor='w', pady=3)
 
-📅 Ngày cấp thẻ: {reader.card_start}
-📅 Ngày hết hạn: {reader.card_end}
-⏰ Thời hạn: {reader.get_card_validity_info()}
+        # Action buttons
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.pack(pady=15)
 
-🎯 Trạng thái: {reader.get_status_display()}
-⭐ Điểm uy tín: {reader.reputation_score}/100 ({reader.get_reputation_level()})
-
-📊 Tình trạng: 
-   • Đang hoạt động: {'Có' if reader.is_active() else 'Không'}
-   • Đã hết hạn: {'Có' if reader.is_expired() else 'Không'}
-   • Bị khóa: {'Có' if reader.is_locked() else 'Không'}
-"""
-
-        text_widget = tk.Text(
-            info_frame,
-            wrap='word',
-            font=('Courier', 10),
-            background='#f5f5f5',
-            padx=10,
-            pady=10
-        )
-        text_widget.pack(fill='both', expand=True)
-        text_widget.insert('1.0', info_text)
-        text_widget.config(state='disabled')
-
-        # Close button
         ttk.Button(
-            main_frame,
-            text="Đóng",
+            btn_frame,
+            text="✏️ Sửa",
+            command=lambda: [detail_window.destroy(), self._show_edit_dialog()],
+            width=15
+        ).pack(side='left', padx=5)
+
+        ttk.Button(
+            btn_frame,
+            text="📅 Gia hạn",
+            command=lambda: [detail_window.destroy(), self._extend_card()],
+            width=15
+        ).pack(side='left', padx=5)
+
+        ttk.Button(
+            btn_frame,
+            text="❌ Đóng",
             command=detail_window.destroy,
             width=15
-        ).pack(pady=(10, 0))
+        ).pack(side='left', padx=5)
 
     def _show_statistics(self):
-        """Hiển thị thống kê"""
+        """Hiển thị thống kê nâng cao"""
         stats = self.controller.get_statistics()
 
-        # Tạo dialog thống kê
         dialog = tk.Toplevel(self)
         dialog.title("📊 Thống kê bạn đọc")
-        dialog.geometry("550x500")
+        dialog.geometry("700x650")
         dialog.resizable(False, False)
         dialog.transient(self)
+        dialog.grab_set()
+
+        # Header
+        header = tk.Frame(dialog, bg='#1976D2', height=80)
+        header.pack(fill='x')
+        header.pack_propagate(False)
+
+        tk.Label(
+            header,
+            text="📊 THỐNG KÊ VÀ BÁO CÁO",
+            font=('Arial', 16, 'bold'),
+            fg='white',
+            bg='#1976D2'
+        ).pack(expand=True)
 
         # Main frame
         main_frame = ttk.Frame(dialog, padding=20)
         main_frame.pack(fill='both', expand=True)
 
-        # Tiêu đề
-        ttk.Label(
-            main_frame,
-            text="📊 THỐNG KÊ BẠN ĐỌC",
-            font=('Arial', 16, 'bold'),
-            foreground='#1976D2'
-        ).pack(pady=(0, 20))
-
-        # Tổng quan
-        overview_frame = ttk.LabelFrame(main_frame, text="📈 Tổng quan", padding=15)
+        # Overview section
+        overview_frame = ttk.LabelFrame(main_frame, text="📈 Tổng quan hệ thống", padding=15)
         overview_frame.pack(fill='x', pady=10)
 
-        overview_text = f"""
-📚 Tổng số bạn đọc: {stats['total']}
-🟢 Đang hoạt động: {stats['active']}
-🔴 Hết hạn: {stats['expired']}
-🔒 Bị khóa: {stats['locked']}
-⏰ Sắp hết hạn (30 ngày): {stats['expiring_soon']}
-"""
-        ttk.Label(overview_frame, text=overview_text, font=('Arial', 10)).pack(anchor='w')
+        overview_grid = ttk.Frame(overview_frame)
+        overview_grid.pack(fill='x')
 
-        # Điểm uy tín
-        rep_frame = ttk.LabelFrame(main_frame, text="⭐ Điểm uy tín", padding=15)
+        stats_items = [
+            ("📚 Tổng số bạn đọc:", stats['total'], "#1976D2"),
+            ("🟢 Đang hoạt động:", stats['active'], "#4CAF50"),
+            ("🔴 Hết hạn:", stats['expired'], "#F44336"),
+            ("🔒 Bị khóa:", stats['locked'], "#FF9800"),
+            ("⏰ Sắp hết hạn:", stats['expiring_soon'], "#FFC107")
+        ]
+
+        for i, (label, value, color) in enumerate(stats_items):
+            frame = ttk.Frame(overview_grid)
+            frame.grid(row=i // 2, column=i % 2, padx=10, pady=5, sticky='w')
+
+            ttk.Label(frame, text=label, font=('Arial', 10)).pack(side='left')
+            tk.Label(
+                frame,
+                text=str(value),
+                font=('Arial', 12, 'bold'),
+                fg=color
+            ).pack(side='left', padx=5)
+
+        # Reputation section
+        rep_frame = ttk.LabelFrame(main_frame, text="⭐ Phân tích điểm uy tín", padding=15)
         rep_frame.pack(fill='x', pady=10)
 
         rep_text = f"""
-📊 Điểm trung bình: {stats['avg_reputation']:. 2f}/100
-⭐ Xuất sắc (≥90): {stats['high_reputation']} bạn đọc
-❌ Kém (<50): {stats['low_reputation']} bạn đọc
+📊 Điểm trung bình: {stats['avg_reputation']:.2f}/100
+⭐ Xuất sắc (≥90 điểm): {stats['high_reputation']} bạn đọc ({stats['high_reputation'] / max(stats['total'], 1) * 100:.1f}%)
+👍 Tốt (75-89 điểm): {stats['total'] - stats['high_reputation'] - stats['low_reputation']} bạn đọc
+❌ Kém (<50 điểm): {stats['low_reputation']} bạn đọc ({stats['low_reputation'] / max(stats['total'], 1) * 100:.1f}%)
 """
-        ttk.Label(rep_frame, text=rep_text, font=('Arial', 10)).pack(anchor='w')
+        ttk.Label(rep_frame, text=rep_text, font=('Arial', 10), justify='left').pack(anchor='w')
 
-        # Biểu đồ đơn giản
-        chart_frame = ttk.LabelFrame(main_frame, text="📊 Biểu đồ trạng thái", padding=15)
-        chart_frame.pack(fill='x', pady=10)
+        # Chart section
+        chart_frame = ttk.LabelFrame(main_frame, text="📊 Biểu đồ trực quan", padding=15)
+        chart_frame.pack(fill='both', expand=True, pady=10)
 
-        total = stats['total'] or 1  # Tránh chia cho 0
+        canvas = tk.Canvas(chart_frame, height=150, bg='white')
+        canvas.pack(fill='x', pady=10)
 
-        canvas = tk.Canvas(chart_frame, height=100, bg='white')
-        canvas.pack(fill='x')
+        # Draw bar chart
+        total = stats['total'] or 1
+        data = [
+            ('Hoạt động', stats['active'], '#4CAF50'),
+            ('Hết hạn', stats['expired'], '#F44336'),
+            ('Bị khóa', stats['locked'], '#FF9800')
+        ]
 
-        # Vẽ bar chart đơn giản
-        colors = {'active': '#4CAF50', 'expired': '#F44336', 'locked': '#FF9800'}
-        x = 50
-        for key, color in colors.items():
-            count = stats[key]
-            width = (count / total) * 400 if total > 0 else 0
-            canvas.create_rectangle(x, 20, x + width, 50, fill=color)
-            canvas.create_text(x + width / 2, 35, text=str(count), fill='white', font=('Arial', 10, 'bold'))
-            canvas.create_text(x + width / 2, 70, text=key.capitalize(), font=('Arial', 9))
-            x += 150
+        x_start = 50
+        bar_width = 180
+        spacing = 30
 
-        # Buttons
+        for i, (label, count, color) in enumerate(data):
+            x = x_start + i * (bar_width + spacing)
+            height = (count / max(total, 1)) * 80
+
+            # Bar
+            canvas.create_rectangle(
+                x, 100 - height, x + bar_width, 100,
+                fill=color, outline=color
+            )
+
+            # Count
+            canvas.create_text(
+                x + bar_width / 2, 95 - height - 10,
+                text=str(count),
+                font=('Arial', 12, 'bold'),
+                fill=color
+            )
+
+            # Label
+            canvas.create_text(
+                x + bar_width / 2, 120,
+                text=label,
+                font=('Arial', 10)
+            )
+
+            # Percentage
+            percentage = (count / total * 100) if total > 0 else 0
+            canvas.create_text(
+                x + bar_width / 2, 135,
+                text=f"({percentage:.1f}%)",
+                font=('Arial', 9),
+                fill='#666'
+            )
+
+        # Action buttons
         btn_frame = ttk.Frame(main_frame)
-        btn_frame.pack(pady=(20, 0))
+        btn_frame.pack(pady=15)
 
         ttk.Button(
             btn_frame,
@@ -727,30 +1006,54 @@ class ReaderView(ttk.Frame):
 
         ttk.Button(
             btn_frame,
-            text="Đóng",
+            text="📊 Xuất báo cáo",
+            command=self._export_statistics_report,
+            width=18
+        ).pack(side='left', padx=5)
+
+        ttk.Button(
+            btn_frame,
+            text="❌ Đóng",
             command=dialog.destroy,
             width=15
         ).pack(side='left', padx=5)
 
     def _auto_update_and_refresh(self, dialog):
-        """Tự động cập nhật thẻ hết hạn và refresh"""
+        """Tự động cập nhật thẻ hết hạn"""
         if self.controller.auto_update_expired(parent=dialog):
             dialog.destroy()
             self._load_data()
             self._show_statistics()
 
+    def _export_statistics_report(self):
+        """Xuất báo cáo thống kê"""
+        self.msg_helper.show_info(
+            "Xuất báo cáo",
+            "Tính năng xuất báo cáo thống kê đang được phát triển",
+            parent=self
+        )
+
     def _export_json(self):
         """Xuất dữ liệu ra JSON"""
-        self.controller.export_json(self.current_readers, parent=self)
+        if self.controller.export_json(self.current_readers, parent=self):
+            self.status_label.config(text="✅ Đã xuất JSON thành công")
 
     def _export_csv(self):
         """Xuất dữ liệu ra CSV"""
-        self.controller.export_csv(self.current_readers, parent=self)
+        if self.controller.export_csv(self.current_readers, parent=self):
+            self.status_label.config(text="✅ Đã xuất CSV thành công")
 
     def _export_excel(self):
         """Xuất dữ liệu ra Excel"""
-        self.controller.export_excel(self.current_readers, parent=self)
+        if self.controller.export_excel(self.current_readers, parent=self):
+            self.status_label.config(text="✅ Đã xuất Excel thành công")
 
     def _export_pdf(self):
         """Xuất dữ liệu ra PDF"""
-        self.controller.export_pdf(self.current_readers, parent=self)
+        if self.controller.export_pdf(self.current_readers, parent=self):
+            self.status_label.config(text="✅ Đã xuất PDF thành công")
+
+    def _schedule_auto_refresh(self):
+        """Lên lịch auto-refresh mỗi 5 phút"""
+        self._load_data()
+        self.after(300000, self._schedule_auto_refresh)  # 5 minutes
