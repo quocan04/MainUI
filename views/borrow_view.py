@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from tkcalendar import DateEntry
 from controllers.borrow_controller import BorrowController
+from datetime import datetime
 
 
 class BorrowView(ttk.Frame):
@@ -31,12 +32,12 @@ class BorrowView(ttk.Frame):
 
         ttk.Label(form, text="Ngày mượn:").grid(row=0, column=2, sticky="w", padx=5, pady=5)
         self.borrow_date_entry = DateEntry(form, width=15, date_pattern="yyyy-mm-dd")
-        self.borrow_date_entry.set_date("")  # Mặc định là hôm nay khi tạo
+        self.borrow_date_entry.set_date(datetime.now())  # Mặc định là hôm nay khi tạo
         self.borrow_date_entry.grid(row=0, column=3, padx=5, pady=5)
 
         ttk.Label(form, text="Ngày trả:").grid(row=1, column=2, sticky="w", padx=5, pady=5)
         self.return_date_entry = DateEntry(form, width=15, date_pattern="yyyy-mm-dd")
-        self.return_date_entry.set_date("")  # Để trống mặc định
+        self.return_date_entry.set_date(datetime.now())  # Để trống mặc định
         self.return_date_entry.grid(row=1, column=3, padx=5, pady=5)
 
         # -----------------------
