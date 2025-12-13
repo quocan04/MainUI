@@ -9,6 +9,8 @@ from views.borrow_view import BorrowView
 from views.dashboard_view import DashboardView
 from views.reader_view import ReaderView
 from views.book_view import BookView
+from views.report_view import ReportView
+from views.system_view import SystemView
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +191,14 @@ class MainWindow(tk.Tk):
         self.notebook.add(borrow_frame, text="📋 Mượn/Trả sách")
         self._add_placeholder_tab("💰 Quản lý Phạt")
         self._add_placeholder_tab("👨‍💼 Quản lý Nhân viên")
-        self._add_placeholder_tab("📊 Thống kê & Báo cáo")
+
+        # --- [MỚI] Tab 6: Báo cáo & Thống kê ---
+        self.report_view = ReportView(self.notebook)
+        self.notebook.add(self.report_view, text="📊 Báo cáo & Thống kê")
+
+        # --- [MỚI] Tab 7: Hệ thống ---
+        self.system_view = SystemView(self.notebook)
+        self.notebook.add(self.system_view, text="⚙️ Hệ thống")
 
         # Status bar
         status_bar = ttk.Frame(self, relief='sunken', borderwidth=1)

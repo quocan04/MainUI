@@ -3,4 +3,4 @@ from .main_window import MainWindow
 from .reader_view import ReaderView
 from .reader_dialog import ReaderDialog
 
-__all__ = ['MainWindow', 'ReaderView', 'ReaderDialog', 'borrow_view', 'book_view','book_dialog']
+__all__ = ['MainWindow', 'ReaderView', 'ReaderDialog', 'borrow_view', 'book_view','book_dialog','report_view', 'system_view']
