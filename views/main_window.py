@@ -4,12 +4,14 @@ import sys
 import logging
 
 from config.database import db
+from config.session import Session
 from config.settings import AppConfig
 from views.borrow_view import BorrowView
 from views.dashboard_view import DashboardView
 from views.reader_view import ReaderView
 from views.book_view import BookView
 from views.report_view import ReportView
+from views.staff_view import StaffView
 from views.system_view import SystemView
 
 logger = logging.getLogger(__name__)
@@ -282,7 +284,8 @@ class MainWindow(tk.Tk):
         borrow_frame = BorrowView(self.notebook)
         self.notebook.add(borrow_frame, text="📋 Mượn/Trả sách")
         self._add_placeholder_tab("💰 Quản lý Phạt")
-        self._add_placeholder_tab("👨‍💼 Quản lý Nhân viên")
+        staff_view = StaffView(self.notebook)
+        self.notebook.add(staff_view, text="👨‍💼 Quản lý Nhân viên")
 
         # --- [MỚI] Tab 6: Báo cáo & Thống kê ---
         self.report_view = ReportView(self.notebook)
