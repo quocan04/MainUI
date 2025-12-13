@@ -24,7 +24,9 @@ class MainWindow(tk.Tk):
         self.title(f"{AppConfig.APP_NAME} v{AppConfig.VERSION}")
         self.geometry("1400x800")
         self.minsize(1200, 600)
-
+        self.STAFF_TAB_INDEX = None
+        self.staff_tab = None
+        self._loading_staff_tab = False
         # Set icon (nếu có)
         # self.iconbitmap('icon.ico')
 
@@ -101,7 +103,11 @@ class MainWindow(tk.Tk):
         manage_menu.add_command(label="📋 Mượn/Trả", command=lambda: self._show_tab(3), accelerator="Ctrl+3")
         manage_menu.add_command(label="💰 Phạt", command=lambda: self._show_tab(4), accelerator="Ctrl+4")
         manage_menu.add_separator()
-        manage_menu.add_command(label="👨‍💼 Nhân viên", command=lambda: self._show_tab(5), accelerator="Ctrl+5")
+        manage_menu.add_command(
+            label="👨‍💼 Nhân viên",
+            command=self.open_staff_management,
+            accelerator="Ctrl+5"
+        )
 
         # Báo cáo menu
         report_menu = tk.Menu(menubar, tearoff=0)
@@ -132,7 +138,93 @@ class MainWindow(tk.Tk):
         self.bind('<Control-2>', lambda e: self._show_tab(2))
         self.bind('<Control-3>', lambda e: self._show_tab(3))
         self.bind('<Control-4>', lambda e: self._show_tab(4))
-        self.bind('<Control-5>', lambda e: self._show_tab(5))
+        self.bind('<Control-5>', lambda e: self.open_staff_management())
+
+    def _on_tab_selected(self, event):
+        """Xử lý sự kiện khi người dùng click chuyển tab"""
+        if self.is_checking_auth: return  # Tránh vòng lặp
+
+        selected_tab_id = self.notebook.select()
+        if not selected_tab_id: return
+
+        tab_text = self.notebook.tab(selected_tab_id, "text")
+
+        # Nếu click vào tab Nhân viên thì gọi hàm xử lý
+        if tab_text == "👨‍💼 Quản lý Nhân viên":
+            self.open_staff_management()
+
+    def open_staff_management(self):
+        """Xử lý logic mở tab nhân viên"""
+        self.is_checking_auth = True  # Bật cờ kiểm tra
+
+        try:
+            # 1. Kiểm tra đăng nhập
+            # SỬA: Thay is_logged_in() bằng is_authenticated()
+            if not Session.is_authenticated():
+                # Import tại đây để tránh vòng lặp import nếu có
+                from views.staff_login_view import StaffLoginView
+
+                # Mở dialog login modal
+                login = StaffLoginView(self)
+                self.wait_window(login)  # Chờ cho đến khi cửa sổ đóng
+
+                # 2. Kiểm tra lại sau khi đóng cửa sổ login
+                if not Session.is_authenticated():  # SỬA Ở ĐÂY
+                    # Nếu vẫn chưa login
+                    messagebox.showinfo("Thông báo", "Bạn cần đăng nhập để truy cập chức năng này.")
+                    self.notebook.select(0)
+                    self.is_checking_auth = False
+                    return
+
+            # 3. Nếu đã login thành công
+            staff_index = self.notebook.index(self.staff_tab)
+
+            if self.notebook.index("current") != staff_index:
+                self.notebook.select(staff_index)
+
+            # 4. Load View Nhân viên (Xóa placeholder cũ đi)
+            is_view_loaded = False
+            for child in self.staff_tab.winfo_children():
+                if isinstance(child, StaffView):
+                    is_view_loaded = True
+                    break
+                child.destroy()
+
+            if not is_view_loaded:
+                staff_view = StaffView(self.staff_tab)
+                staff_view.pack(fill="both", expand=True)
+                if hasattr(staff_view, 'refresh_data'):
+                    staff_view.refresh_data()
+
+        except Exception as e:
+            logger.error(f"Lỗi mở tab nhân viên: {e}")
+            messagebox.showerror("Lỗi", f"Có lỗi xảy ra: {e}")
+            self.notebook.select(0)
+
+        finally:
+            self.is_checking_auth = False  # Tắt cờ
+
+    def _load_staff_view(self):
+            """
+            Load hoặc focus StaffView
+            """
+
+            # Đã tồn tại tab → chỉ select
+            if self.STAFF_TAB_INDEX is not None:
+                self.notebook.select(self.STAFF_TAB_INDEX)
+                return
+
+            # Chưa có → tạo mới
+            staff_view = StaffView(self.notebook)
+            self.notebook.add(
+                staff_view,
+                text="👨‍💼 Quản lý Nhân viên"
+            )
+
+            self.STAFF_TAB_INDEX = self.notebook.index("end") - 1
+            self.notebook.select(self.STAFF_TAB_INDEX)
+
+            self.notebook.select(self.STAFF_TAB_INDEX)
 
     def _create_widgets(self):
         """Tạo giao diện"""
