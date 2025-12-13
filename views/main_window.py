@@ -7,6 +7,7 @@ from config.database import db
 from config.settings import AppConfig
 from views.dashboard_view import DashboardView
 from views.reader_view import ReaderView
+from views.book_view import BookView
 
 logger = logging.getLogger(__name__)
 
@@ -178,8 +179,11 @@ class MainWindow(tk.Tk):
         reader_frame = ReaderView(self.notebook)
         self.notebook.add(reader_frame, text="👥 Quản lý Bạn đọc")
 
-        # Tab 2-6: Placeholder tabs
-        self._add_placeholder_tab("📚 Quản lý Sách")
+        # Tab 2: Sách - ✅ THÊM MỚI
+        book_frame = BookView(self.notebook)
+        self.notebook.add(book_frame, text="📚 Quản lý Sách")
+
+        # Tab 3-6: Placeholder tabs
         self._add_placeholder_tab("📋 Mượn/Trả sách")
         self._add_placeholder_tab("💰 Quản lý Phạt")
         self._add_placeholder_tab("👨‍💼 Quản lý Nhân viên")

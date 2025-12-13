@@ -168,25 +168,23 @@ class BookView(ttk.Frame):
             height=15
         )
 
-        # Định nghĩa columns
+        # Cấu hình độ rộng cột
+        self.tree.column('ID', width=50, anchor='center')
+        self.tree.column('Tựa sách', width=250, anchor='w')
+        self.tree.column('Tác giả', width=150, anchor='w')
+        self.tree.column('Thể loại', width=120, anchor='w')
+        self.tree.column('NXB', width=150, anchor='w')
+        self.tree.column('Năm XB', width=80, anchor='center')
+        self.tree.column('ISBN', width=120, anchor='center')
+        self.tree.column('Barcode', width=120, anchor='center')
+        self.tree.column('Giá', width=100, anchor='e')
+        self.tree.column('Tổng SL', width=80, anchor='center')
+        self.tree.column('Còn', width=80, anchor='center')
+        self.tree.column('Trạng thái', width=120, anchor='center')
+
+        # Định nghĩa columns headers
         for col in columns:
             self.tree.heading(col, text=col)
-
-            # Trong _create_widgets(), tìm phần cấu hình column và sửa như sau:
-
-            # Cấu hình độ rộng cột
-            self.tree.column('ID', width=50, anchor='center')
-            self.tree.column('Tựa sách', width=250, anchor='w')
-            self.tree.column('Tác giả', width=150, anchor='w')
-            self.tree.column('Thể loại', width=120, anchor='w')
-            self.tree.column('NXB', width=150, anchor='w')
-            self.tree.column('Năm XB', width=80, anchor='center')
-            self.tree.column('ISBN', width=120, anchor='center')
-            self.tree.column('Barcode', width=120, anchor='center')
-            self.tree.column('Giá', width=100, anchor='e')  # ✅ FIX: 'right' -> 'e'
-            self.tree.column('Tổng SL', width=80, anchor='center')
-            self.tree.column('Còn', width=80, anchor='center')
-            self.tree.column('Trạng thái', width=120, anchor='center')
 
         # Scrollbars
         vsb = ttk.Scrollbar(table_frame, orient='vertical', command=self.tree.yview)
@@ -403,23 +401,21 @@ class BookView(ttk.Frame):
             self._load_data()
 
     def _show_inventory_dialog(self):
-        """Hiển thị dialog cập nhật tồn kho - FIXED UI"""
+        """Hiển thị dialog cập nhật tồn kho"""
         if not self.selected_book:
             self.msg_helper.show_warning("Chưa chọn", "Vui lòng chọn sách", parent=self)
             return
 
         dialog = tk.Toplevel(self)
         dialog.title("📦 Cập nhật tồn kho")
-        dialog.geometry("500x350")  # ✅ FIX: Tăng kích thước
+        dialog.geometry("500x350")
         dialog.resizable(False, False)
         dialog.transient(self)
         dialog.grab_set()
 
-        # ✅ FIX: Main frame với padding đẹp hơn
         frame = ttk.Frame(dialog, padding=30)
         frame.pack(fill='both', expand=True)
 
-        # ✅ FIX: Title đẹp hơn với icon và màu
         title_label = ttk.Label(
             frame,
             text="📦 CẬP NHẬT TỒN KHO",
@@ -428,7 +424,6 @@ class BookView(ttk.Frame):
         )
         title_label.pack(pady=(0, 15))
 
-        # ✅ FIX: Tên sách với word wrap
         book_title = self.selected_book.title
         if len(book_title) > 40:
             book_title = book_title[:40] + "..."
@@ -442,10 +437,8 @@ class BookView(ttk.Frame):
         )
         book_label.pack(pady=(0, 20))
 
-        # ✅ FIX: Separator
         ttk.Separator(frame, orient='horizontal').pack(fill='x', pady=(0, 20))
 
-        # ✅ FIX: Input fields với style đẹp hơn
         # Tổng số lượng
         total_frame = ttk.Frame(frame)
         total_frame.pack(fill='x', pady=10)
@@ -488,10 +481,8 @@ class BookView(ttk.Frame):
         )
         available_spinbox.pack(side='left')
 
-        # ✅ FIX: Separator trước buttons
         ttk.Separator(frame, orient='horizontal').pack(fill='x', pady=25)
 
-        # ✅ FIX: Buttons to đẹp hơn
         def save():
             if self.controller.update_inventory(
                     self.selected_book.book_id,
@@ -505,43 +496,23 @@ class BookView(ttk.Frame):
         btn_frame = ttk.Frame(frame)
         btn_frame.pack(pady=(0, 10))
 
-        # ✅ FIX: Style cho buttons
-        save_btn = ttk.Button(
+        ttk.Button(
             btn_frame,
             text="💾 Lưu thay đổi",
             command=save,
             width=20
-        )
-        save_btn.pack(side='left', padx=10)
+        ).pack(side='left', padx=10)
 
-        cancel_btn = ttk.Button(
+        ttk.Button(
             btn_frame,
             text="❌ Hủy bỏ",
             command=dialog.destroy,
             width=20
-        )
-        cancel_btn.pack(side='left', padx=10)
+        ).pack(side='left', padx=10)
 
-        # ✅ FIX: Bind Enter/Escape
         dialog.bind('<Return>', lambda e: save())
         dialog.bind('<Escape>', lambda e: dialog.destroy())
-
-        # Focus vào spinbox đầu tiên
         total_spinbox.focus()
-        def save():
-            if self.controller.update_inventory(
-                    self.selected_book.book_id,
-                    total_var.get(),
-                    available_var.get(),
-                    parent=dialog
-            ):
-                self._load_data()
-                dialog.destroy()
-
-        btn_frame = ttk.Frame(frame)
-        btn_frame.pack(pady=20)
-        ttk.Button(btn_frame, text="💾 Lưu", command=save, width=15).pack(side='left', padx=5)
-        ttk.Button(btn_frame, text="❌ Hủy", command=dialog.destroy, width=15).pack(side='left', padx=5)
 
     def _show_detail(self):
         """Hiển thị chi tiết đầy đủ"""
@@ -559,7 +530,6 @@ class BookView(ttk.Frame):
         main_frame = ttk.Frame(detail_window, padding=20)
         main_frame.pack(fill='both', expand=True)
 
-        # Title
         ttk.Label(
             main_frame,
             text=f"📚 CHI TIẾT SÁCH",
@@ -567,7 +537,6 @@ class BookView(ttk.Frame):
             foreground='#1976D2'
         ).pack(pady=(0, 20))
 
-        # Info frame
         info_frame = ttk.Frame(main_frame)
         info_frame.pack(fill='both', expand=True)
 
@@ -608,7 +577,6 @@ class BookView(ttk.Frame):
         text_widget.insert('1.0', info_text)
         text_widget.config(state='disabled')
 
-        # Close button
         ttk.Button(
             main_frame,
             text="Đóng",
@@ -616,160 +584,149 @@ class BookView(ttk.Frame):
             width=15
         ).pack(pady=(10, 0))
 
-        def _show_statistics(self):
-            """Hiển thị thống kê - FIXED UI"""
-            stats = self.controller.get_statistics()
+    def _show_statistics(self):
+        """Hiển thị thống kê"""
+        stats = self.controller.get_statistics()
 
-            dialog = tk.Toplevel(self)
-            dialog.title("📊 Thống kê sách")
-            dialog.geometry("750x650")  # ✅ FIX: Tăng kích thước
-            dialog.resizable(True, True)  # ✅ FIX: Cho phép resize
-            dialog.transient(self)
+        dialog = tk.Toplevel(self)
+        dialog.title("📊 Thống kê sách")
+        dialog.geometry("750x650")
+        dialog.resizable(True, True)
+        dialog.transient(self)
 
-            # ✅ FIX: Main frame với scrollbar
-            main_frame = ttk.Frame(dialog)
-            main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+        main_frame = ttk.Frame(dialog)
+        main_frame.pack(fill='both', expand=True, padx=20, pady=20)
 
-            # Tiêu đề
-            ttk.Label(
-                main_frame,
-                text="📊 THỐNG KÊ SÁCH",
-                font=('Arial', 18, 'bold'),
-                foreground='#1976D2'
-            ).pack(pady=(0, 25))
+        ttk.Label(
+            main_frame,
+            text="📊 THỐNG KÊ SÁCH",
+            font=('Arial', 18, 'bold'),
+            foreground='#1976D2'
+        ).pack(pady=(0, 25))
 
-            # ✅ FIX: Container với scrollbar
-            canvas = tk.Canvas(main_frame, highlightthickness=0)
-            scrollbar = ttk.Scrollbar(main_frame, orient='vertical', command=canvas.yview)
-            scrollable_frame = ttk.Frame(canvas)
+        canvas = tk.Canvas(main_frame, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(main_frame, orient='vertical', command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
 
-            scrollable_frame.bind(
-                "<Configure>",
-                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-            )
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
 
-            canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
-            canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
+        canvas.configure(yscrollcommand=scrollbar.set)
 
-            # ========== TỔNG QUAN ==========
-            overview_frame = ttk.LabelFrame(
-                scrollable_frame,
-                text="📈 Tổng quan",
-                padding=20
-            )
-            overview_frame.pack(fill='x', pady=10)
+        # TỔNG QUAN
+        overview_frame = ttk.LabelFrame(
+            scrollable_frame,
+            text="📈 Tổng quan",
+            padding=20
+        )
+        overview_frame.pack(fill='x', pady=10)
 
-            overview_text = f"""
-    📚 Tổng số đầu sách: {stats.get('total_books', 0):,} đầu
-    📦 Tổng số lượng: {stats.get('total_quantity', 0):,} cuốn
-    ✅ Số lượng còn: {stats.get('available_quantity', 0):,} cuốn
-    📤 Đang cho mượn: {stats.get('borrowed_quantity', 0):,} cuốn
-    """
-            ttk.Label(
-                overview_frame,
-                text=overview_text,
-                font=('Arial', 11),
-                justify='left'
-            ).pack(anchor='w')
+        overview_text = f"""
+📚 Tổng số đầu sách: {stats.get('total_books', 0):,} đầu
+📦 Tổng số lượng: {stats.get('total_quantity', 0):,} cuốn
+✅ Số lượng còn: {stats.get('available_quantity', 0):,} cuốn
+📤 Đang cho mượn: {stats.get('borrowed_quantity', 0):,} cuốn
+"""
+        ttk.Label(
+            overview_frame,
+            text=overview_text,
+            font=('Arial', 11),
+            justify='left'
+        ).pack(anchor='w')
 
-            # ========== TỒN KHO ==========
-            stock_frame = ttk.LabelFrame(
-                scrollable_frame,
-                text="📦 Tình trạng tồn kho",
-                padding=20
-            )
-            stock_frame.pack(fill='x', pady=10)
+        # TỒN KHO
+        stock_frame = ttk.LabelFrame(
+            scrollable_frame,
+            text="📦 Tình trạng tồn kho",
+            padding=20
+        )
+        stock_frame.pack(fill='x', pady=10)
 
-            stock_text = f"""
-    ❌ Hết hàng: {stats.get('out_of_stock', 0)} đầu sách
-    ⚠️ Sắp hết (< 5 cuốn): {stats.get('low_stock', 0)} đầu sách
-    ✅ Còn hàng: {stats.get('total_books', 0) - stats.get('out_of_stock', 0) - stats.get('low_stock', 0)} đầu sách
-    """
-            ttk.Label(
-                stock_frame,
-                text=stock_text,
-                font=('Arial', 11),
-                justify='left'
-            ).pack(anchor='w')
+        stock_text = f"""
+❌ Hết hàng: {stats.get('out_of_stock', 0)} đầu sách
+⚠️ Sắp hết (< 5 cuốn): {stats.get('low_stock', 0)} đầu sách
+✅ Còn hàng: {stats.get('total_books', 0) - stats.get('out_of_stock', 0) - stats.get('low_stock', 0)} đầu sách
+"""
+        ttk.Label(
+            stock_frame,
+            text=stock_text,
+            font=('Arial', 11),
+            justify='left'
+        ).pack(anchor='w')
 
-            # ✅ FIX: Biểu đồ tồn kho đẹp hơn
-            chart_canvas = tk.Canvas(stock_frame, height=120, bg='white', highlightthickness=1,
-                                     highlightbackground='#ddd')
-            chart_canvas.pack(fill='x', pady=(10, 0))
+        chart_canvas = tk.Canvas(stock_frame, height=120, bg='white', highlightthickness=1,
+                                 highlightbackground='#ddd')
+        chart_canvas.pack(fill='x', pady=(10, 0))
 
-            total_books = stats.get('total_books', 1) or 1
-            out = stats.get('out_of_stock', 0)
-            low = stats.get('low_stock', 0)
-            good = total_books - out - low
+        total_books = stats.get('total_books', 1) or 1
+        out = stats.get('out_of_stock', 0)
+        low = stats.get('low_stock', 0)
+        good = total_books - out - low
 
-            # Vẽ bar chart
-            colors = {'good': '#4CAF50', 'low': '#FF9800', 'out': '#F44336'}
-            labels = {'good': f'Còn hàng ({good})', 'low': f'Sắp hết ({low})', 'out': f'Hết hàng ({out})'}
+        colors = {'good': '#4CAF50', 'low': '#FF9800', 'out': '#F44336'}
+        labels = {'good': f'Còn hàng ({good})', 'low': f'Sắp hết ({low})', 'out': f'Hết hàng ({out})'}
 
-            x = 50
-            max_width = 600
-            for key, color in colors.items():
-                count = good if key == 'good' else (low if key == 'low' else out)
-                width = (count / total_books) * max_width if total_books > 0 else 0
+        x = 50
+        max_width = 600
+        for key, color in colors.items():
+            count = good if key == 'good' else (low if key == 'low' else out)
+            width = (count / total_books) * max_width if total_books > 0 else 0
 
-                # Vẽ bar
-                chart_canvas.create_rectangle(x, 30, x + width, 70, fill=color, outline='')
+            chart_canvas.create_rectangle(x, 30, x + width, 70, fill=color, outline='')
 
-                # Vẽ số lượng
-                if width > 30:
-                    chart_canvas.create_text(
-                        x + width / 2, 50,
-                        text=str(count),
-                        fill='white',
-                        font=('Arial', 12, 'bold')
-                    )
-
-                # Vẽ label
+            if width > 30:
                 chart_canvas.create_text(
-                    x + width / 2, 95,
-                    text=labels[key],
-                    font=('Arial', 9)
+                    x + width / 2, 50,
+                    text=str(count),
+                    fill='white',
+                    font=('Arial', 12, 'bold')
                 )
 
-                x += max_width // 3
-
-            # ========== DANH MỤC ==========
-            catalog_frame = ttk.LabelFrame(
-                scrollable_frame,
-                text="📂 Danh mục",
-                padding=20
+            chart_canvas.create_text(
+                x + width / 2, 95,
+                text=labels[key],
+                font=('Arial', 9)
             )
-            catalog_frame.pack(fill='x', pady=10)
 
-            catalog_text = f"""
-    👤 Số tác giả: {stats.get('total_authors', 0):,} tác giả
-    🏷️ Số thể loại: {stats.get('total_categories', 0):,} thể loại
-    🏭 Số nhà xuất bản: {stats.get('total_publishers', 0):,} nhà xuất bản
-    """
-            ttk.Label(
-                catalog_frame,
-                text=catalog_text,
-                font=('Arial', 11),
-                justify='left'
-            ).pack(anchor='w')
+            x += max_width // 3
 
-            # Pack canvas và scrollbar
-            canvas.pack(side='left', fill='both', expand=True)
-            scrollbar.pack(side='right', fill='y')
+        # DANH MỤC
+        catalog_frame = ttk.LabelFrame(
+            scrollable_frame,
+            text="📂 Danh mục",
+            padding=20
+        )
+        catalog_frame.pack(fill='x', pady=10)
 
-            # ✅ FIX: Close button to đẹp hơn
-            btn_frame = ttk.Frame(main_frame)
-            btn_frame.pack(pady=(20, 0))
+        catalog_text = f"""
+👤 Số tác giả: {stats.get('total_authors', 0):,} tác giả
+🏷️ Số thể loại: {stats.get('total_categories', 0):,} thể loại
+🏭 Số nhà xuất bản: {stats.get('total_publishers', 0):,} nhà xuất bản
+"""
+        ttk.Label(
+            catalog_frame,
+            text=catalog_text,
+            font=('Arial', 11),
+            justify='left'
+        ).pack(anchor='w')
 
-            ttk.Button(
-                btn_frame,
-                text="✅ Đóng",
-                command=dialog.destroy,
-                width=25
-            ).pack()
+        canvas.pack(side='left', fill='both', expand=True)
+        scrollbar.pack(side='right', fill='y')
 
-            # Bind Escape
-            dialog.bind('<Escape>', lambda e: dialog.destroy())
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.pack(pady=(20, 0))
+
+        ttk.Button(
+            btn_frame,
+            text="✅ Đóng",
+            command=dialog.destroy,
+            width=25
+        ).pack()
+
+        dialog.bind('<Escape>', lambda e: dialog.destroy())
 
     def _export_json(self):
         """Xuất dữ liệu ra JSON"""
