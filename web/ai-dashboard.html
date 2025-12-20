@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Library AI Forecasting Dashboard</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+    <div class="max-w-7xl mx-auto">
+
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="flex items-center gap-3 mb-2">
+                        <i data-lucide="brain" class="w-10 h-10 text-indigo-600"></i>
+                        <h1 class="text-4xl font-bold text-gray-800">AI Dự Đoán Thư Viện</h1>
+                    </div>
+                    <p class="text-gray-600 text-lg">
+                        Phân tích xu hướng và dự báo tương lai bằng Machine Learning
+                    </p>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm text-gray-500 mb-1">Độ tin cậy</div>
+                    <div class="text-3xl font-bold text-green-600" id="confidence">90%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8" id="statsCards">
+            <!-- Stats sẽ được render bằng JavaScript -->
+        </div>
+
+        <!-- Controls -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div class="flex flex-wrap gap-4 items-center">
+                <div class="flex-1 min-w-[200px]">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Chỉ số dự đoán
+                    </label>
+                    <select id="metricSelect" class="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+                        <option value="borrowing">📚 Số lượt mượn sách</option>
+                        <option value="revenue">💰 Doanh thu từ phạt</option>
+                        <option value="newUsers">👥 Bạn đọc mới</option>
+                    </select>
+                </div>
+
+                <div class="flex-1 min-w-[200px]">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Dự đoán <span id="periodLabel">6</span> tháng tới
+                    </label>
+                    <input type="range" id="periodRange" min="3" max="8" value="6"
+                           class="w-full" oninput="updatePeriodLabel(this.value)">
+                </div>
+
+                <button onclick="loadData()" class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                    🔄 Làm mới
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Chart -->
+        <div class="bg-white rounded-xl shadow-lg p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                <span id="chartTitle">📚 Số lượt mượn sách</span>
+            </h2>
+            <canvas id="mainChart" height="100"></canvas>
+        </div>
+
+        <!-- Forecast Table -->
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                📊 Bảng Dự Đoán Chi Tiết
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full" id="forecastTable">
+                    <!-- Table sẽ được render bằng JavaScript -->
+                </table>
+            </div>
+        </div>
+
+        <!-- AI Info -->
+        <div class="mt-8 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 border-l-4 border-indigo-500">
+            <div class="flex items-start gap-4">
+                <i data-lucide="alert-circle" class="w-6 h-6 text-indigo-600 flex-shrink-0 mt-1"></i>
+                <div>
+                    <h3 class="font-semibold text-gray-800 mb-2">📌 Về Mô Hình AI</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        Hệ thống sử dụng <strong>Linear Regression với Time Series Analysis</strong> để dự đoán xu hướng.
+                        Dữ liệu được lấy từ API Flask backend kết nối với MySQL database.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // ========== CONFIGURATION ==========
+    const API_URL = 'http://localhost:5000/api/ai/forecast';
+
+    let chart = null;
+    let currentData = null;
+
+    // ========== LOAD DATA FROM API ==========
+    async function loadData() {
+        const historyMonths = 12;
+        const forecastMonths = document.getElementById('periodRange').value;
+
+        try {
+            // Hiển thị loading
+            document.getElementById('confidence').textContent = 'Loading...';
+
+            const response = await fetch(`${API_URL}?history_months=${historyMonths}&forecast_months=${forecastMonths}`);
+            const data = await response.json();
+
+            if (data.success) {
+                currentData = data;
+                renderStats(data.statistics);
+                renderChart(data);
+                renderTable(data.forecast);
+
+                // Update confidence
+                if (data.forecast.length > 0) {
+                    document.getElementById('confidence').textContent = data.forecast[0].confidence + '%';
+                }
+            } else {
+                alert('Không thể tải dữ liệu: ' + (data.message || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error loading data:', error);
+            alert('Không thể kết nối tới API Server.\n\nVui lòng đảm bảo Flask API đang chạy tại http://localhost:5000');
+
+            // Load demo data
+            loadDemoData();
+        }
+    }
+
+    // ========== RENDER STATS CARDS ==========
+    function renderStats(stats) {
+        const statsHTML = `
+            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
+                <div class="flex items-center justify-between mb-2">
+                    <i data-lucide="book-open" class="w-8 h-8 text-blue-500"></i>
+                    <i data-lucide="trending-up" class="w-5 h-5 text-green-500"></i>
+                </div>
+                <div class="text-2xl font-bold text-gray-800">${stats.avg_borrowing || 0}</div>
+                <div class="text-sm text-gray-600">TB Mượn/Tháng</div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500">
+                <div class="flex items-center justify-between mb-2">
+                    <i data-lucide="dollar-sign" class="w-8 h-8 text-green-500"></i>
+                    <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">+${stats.growth_rate ? stats.growth_rate.toFixed(1) : 0}%</span>
+                </div>
+                <div class="text-2xl font-bold text-gray-800">
+                    ${((stats.total_revenue || 0) / 1000000).toFixed(1)}M
+                </div>
+                <div class="text-sm text-gray-600">Doanh Thu Năm</div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-orange-500">
+                <div class="flex items-center justify-between mb-2">
+                    <i data-lucide="users" class="w-8 h-8 text-orange-500"></i>
+                    <i data-lucide="calendar" class="w-5 h-5 text-gray-400"></i>
+                </div>
+                <div class="text-2xl font-bold text-gray-800">${stats.total_new_users || 0}</div>
+                <div class="text-sm text-gray-600">Bạn Đọc Mới</div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500">
+                <div class="flex items-center justify-between mb-2">
+                    <i data-lucide="brain" class="w-8 h-8 text-purple-500"></i>
+                    <i data-lucide="alert-circle" class="w-5 h-5 text-blue-500"></i>
+                </div>
+                <div class="text-2xl font-bold text-gray-800">Linear+</div>
+                <div class="text-sm text-gray-600">Mô Hình AI</div>
+            </div>
+        `;
+
+        document.getElementById('statsCards').innerHTML = statsHTML;
+        lucide.createIcons();
+    }
+
+    // ========== RENDER CHART ==========
+    function renderChart(data) {
+        const metric = document.getElementById('metricSelect').value;
+        const allData = [...data.historical, ...data.forecast];
+
+        const labels = allData.map(d => d.month_display);
+        const values = allData.map(d => d[metric === 'borrowing' ? 'borrowing_count' : metric === 'revenue' ? 'revenue' : 'new_users']);
+        const isActual = allData.map(d => !d.is_forecast);
+
+        const ctx = document.getElementById('mainChart').getContext('2d');
+
+        if (chart) {
+            chart.destroy();
+        }
+
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Thực tế',
+                    data: values.map((v, i) => isActual[i] ? v : null),
+                    borderColor: '#2196F3',
+                    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                }, {
+                    label: 'Dự đoán',
+                    data: values.map((v, i) => !isActual[i] ? v : null),
+                    borderColor: '#FF9800',
+                    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                    borderWidth: 3,
+                    borderDash: [5, 5],
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // ========== RENDER TABLE ==========
+    function renderTable(forecast) {
+        const tableHTML = `
+            <thead>
+                <tr class="bg-gradient-to-r from-indigo-50 to-purple-50">
+                    <th class="px-6 py-4 text-left font-semibold text-gray-700">Tháng</th>
+                    <th class="px-6 py-4 text-center font-semibold text-gray-700">Lượt Mượn</th>
+                    <th class="px-6 py-4 text-center font-semibold text-gray-700">Doanh Thu</th>
+                    <th class="px-6 py-4 text-center font-semibold text-gray-700">Bạn Đọc Mới</th>
+                    <th class="px-6 py-4 text-center font-semibold text-gray-700">Độ Tin Cậy</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${forecast.map(item => `
+                    <tr class="border-b border-gray-100 hover:bg-orange-50 transition-colors">
+                        <td class="px-6 py-4 font-medium text-gray-800">${item.month_display}</td>
+                        <td class="px-6 py-4 text-center text-blue-600 font-semibold">${item.borrowing_count} lượt</td>
+                        <td class="px-6 py-4 text-center text-green-600 font-semibold">${(item.revenue / 1000000).toFixed(2)}M VNĐ</td>
+                        <td class="px-6 py-4 text-center text-orange-600 font-semibold">${item.new_users} người</td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="px-3 py-1 rounded-full text-sm font-medium ${
+                                item.confidence >= 90 ? 'bg-green-100 text-green-800' :
+                                item.confidence >= 80 ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-orange-100 text-orange-800'
+                            }">
+                                ${item.confidence}%
+                            </span>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        `;
+
+        document.getElementById('forecastTable').innerHTML = tableHTML;
+    }
+
+    // ========== DEMO DATA (Fallback) ==========
+    function loadDemoData() {
+        // Demo data tương tự như trong React component
+        console.log('Loading demo data...');
+    }
+
+    // ========== UTILITY FUNCTIONS ==========
+    function updatePeriodLabel(value) {
+        document.getElementById('periodLabel').textContent = value;
+    }
+
+    // ========== EVENT LISTENERS ==========
+    document.getElementById('metricSelect').addEventListener('change', () => {
+        if (currentData) {
+            renderChart(currentData);
+        }
+    });
+
+    document.getElementById('periodRange').addEventListener('change', loadData);
+
+    // ========== INIT ==========
+    document.addEventListener('DOMContentLoaded', () => {
+        lucide.createIcons();
+        loadData();
+    });
+</script>
+
+</body>
+</html>
