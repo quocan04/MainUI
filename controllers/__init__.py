@@ -6,4 +6,4 @@ from .borrow_controller import BorrowController
 from .staff_auth_controller import StaffAuthController
 from .staff_controller import StaffController
 
-__all__ = ['ReaderController', 'BookController', 'BorrowController','report_controller', 'system_controller', 'StaffAuthController', 'StaffController' ]
+__all__ = ['ReaderController', 'BookController', 'BorrowController','report_controller', 'system_controller', 'StaffAuthController', 'StaffController', 'penalty_controller']

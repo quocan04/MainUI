@@ -13,6 +13,7 @@ from views.book_view import BookView
 from views.report_view import ReportView
 from views.staff_view import StaffView
 from views.system_view import SystemView
+from views.penalty_view import PenaltyView
 from config.session import Session
 
 logger = logging.getLogger(__name__)
@@ -301,7 +302,8 @@ class MainWindow(tk.Tk):
         # Tab 3-6: Placeholder tabs
         borrow_frame = BorrowView(self.notebook)
         self.notebook.add(borrow_frame, text="📋 Mượn/Trả sách")
-        self._add_placeholder_tab("💰 Quản lý Phạt")
+        penalty_view = PenaltyView(self.notebook)
+        self.notebook.add(penalty_view, text="💰 Quản lý Phạt")
         staff_view = StaffView(self.notebook)
         self.notebook.add(staff_view, text="👨‍💼 Quản lý Nhân viên")
 
