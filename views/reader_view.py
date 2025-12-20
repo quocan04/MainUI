@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Optional, List
 import logging
+from utils.html_report_helper import HTMLReportHelper
 
 from models.reader import Reader, get_all_statuses, get_status_display_map
 from controllers.reader_controller import ReaderController
@@ -874,188 +875,45 @@ class ReaderView(ttk.Frame):
         ).pack(side='left', padx=5)
 
     def _show_statistics(self):
-        """Hiển thị thống kê nâng cao"""
-        stats = self.controller.get_statistics()
+        """Hiển thị thống kê nâng cao - Xuất lên web"""
+        try:
+            # Lấy dữ liệu thống kê
+            stats = self.controller.get_statistics()
 
-        dialog = tk.Toplevel(self)
-        dialog.title("📊 Thống kê bạn đọc")
-        dialog.geometry("900x650")
-        dialog.minsize(900, 800)
-        dialog.resizable(True, True)
-        dialog.transient(self)
-        dialog.grab_set()
+            # Hiển thị loading
+            self.status_label.config(text="⏳ Đang tạo báo cáo...")
+            self.update_idletasks()
 
-        # Header
-        header = tk.Frame(dialog, bg='#1976D2', height=80)
-        header.pack(fill='x')
-        header.pack_propagate(False)
+            # Tạo báo cáo HTML
+            html_helper = HTMLReportHelper()
+            report_path = html_helper.create_reader_statistics_report(stats, self.current_readers)
 
-        tk.Label(
-            header,
-            text="📊 THỐNG KÊ VÀ BÁO CÁO",
-            font=('Arial', 16, 'bold'),
-            fg='white',
-            bg='#1976D2'
-        ).pack(expand=True)
+            # Mở trong trình duyệt
+            if html_helper.open_report_in_browser(report_path):
+                self.status_label.config(text=f"✅ Đã mở báo cáo trong trình duyệt")
+                self.msg_helper.show_success(
+                    f"Báo cáo đã được tạo thành công!\n\n"
+                    f"File: {report_path}\n\n"
+                    f"Báo cáo đã được mở trong trình duyệt web của bạn.",
+                    parent=self
+                )
+            else:
+                self.status_label.config(text="⚠️ Đã tạo báo cáo nhưng không thể mở trình duyệt")
+                self.msg_helper.show_warning(
+                    "Thông báo",
+                    f"Báo cáo đã được tạo tại:\n{report_path}\n\n"
+                    f"Vui lòng mở file thủ công trong trình duyệt.",
+                    parent=self
+                )
 
-        # Main frame
-        main_frame = ttk.Frame(dialog, padding=20)
-        main_frame.pack(fill='both', expand=True)
-
-        # Overview section
-        overview_frame = ttk.LabelFrame(main_frame, text="📈 Tổng quan hệ thống", padding=15)
-        overview_frame.pack(fill='x', pady=10)
-
-        overview_grid = ttk.Frame(overview_frame)
-        overview_grid.pack(fill='x')
-
-        stats_items = [
-            ("📚 Tổng số bạn đọc:", stats['total'], "#1976D2"),
-            ("🟢 Đang hoạt động:", stats['active'], "#4CAF50"),
-            ("🔴 Hết hạn:", stats['expired'], "#F44336"),
-            ("🔒 Bị khóa:", stats['locked'], "#FF9800"),
-            ("⏰ Sắp hết hạn:", stats['expiring_soon'], "#FFC107")
-        ]
-
-        for i, (label, value, color) in enumerate(stats_items):
-            frame = ttk.Frame(overview_grid)
-            frame.grid(row=i // 2, column=i % 2, padx=10, pady=5, sticky='w')
-
-            ttk.Label(frame, text=label, font=('Arial', 10)).pack(side='left')
-            tk.Label(
-                frame,
-                text=str(value),
-                font=('Arial', 12, 'bold'),
-                fg=color
-            ).pack(side='left', padx=5)
-
-        # Reputation section
-        rep_frame = ttk.LabelFrame(main_frame, text="⭐ Phân tích điểm uy tín", padding=15)
-        rep_frame.pack(fill='x', pady=10)
-
-        rep_text = f"""
-📊 Điểm trung bình: {stats['avg_reputation']:.2f}/100
-⭐ Xuất sắc (≥90 điểm): {stats['high_reputation']} bạn đọc ({stats['high_reputation'] / max(stats['total'], 1) * 100:.1f}%)
-👍 Tốt (75-89 điểm): {stats['total'] - stats['high_reputation'] - stats['low_reputation']} bạn đọc
-❌ Kém (<50 điểm): {stats['low_reputation']} bạn đọc ({stats['low_reputation'] / max(stats['total'], 1) * 100:.1f}%)
-"""
-        ttk.Label(rep_frame, text=rep_text, font=('Arial', 10), justify='left').pack(anchor='w')
-
-        # Chart section
-        chart_frame = ttk.LabelFrame(main_frame, text="📊 Trạng thái bạn đọc", padding=15)
-        chart_frame.pack(fill='both', expand=True, pady=10)
-
-        canvas = tk.Canvas(chart_frame, height=360, bg='white')
-        canvas.pack(fill='both', expand=True)
-
-        # ===== DATA =====
-        total = max(stats['total'], 1)
-        data = [
-            ('Hoạt động', stats['active'], '#4CAF50'),
-            ('Hết hạn', stats['expired'], '#F44336'),
-            ('Bị khóa', stats['locked'], '#FF9800')
-        ]
-
-        # ===== CHART CONFIG =====
-        chart_height = 160
-        chart_width = 500
-        origin_x = 70
-        origin_y = 200
-        bar_width = 90
-        spacing = 60
-        max_value = max(v for _, v, _ in data)
-
-        # ===== GRID + Y AXIS =====
-        steps = 5
-        for i in range(steps + 1):
-            y = origin_y - (i / steps) * chart_height
-            value = int(max_value * i / steps)
-
-            # Grid line
-            canvas.create_line(origin_x, y, origin_x + chart_width, y, fill='#E0E0E0')
-
-            # Y labels
-            canvas.create_text(origin_x - 10, y, text=str(value), anchor='e', font=('Arial', 9))
-
-        # Y axis
-        canvas.create_line(origin_x, origin_y, origin_x, origin_y - chart_height, width=2)
-
-        # X axis
-        canvas.create_line(origin_x, origin_y, origin_x + chart_width, origin_y, width=2)
-
-        # ===== DRAW BARS =====
-        for i, (label, count, color) in enumerate(data):
-            x = origin_x + spacing + i * (bar_width + spacing)
-            bar_height = (count / max_value) * chart_height if max_value else 0
-
-            # Bar
-            canvas.create_rectangle(
-                x,
-                origin_y - bar_height,
-                x + bar_width,
-                origin_y,
-                fill=color,
-                outline=''
+        except Exception as e:
+            logger.error(f"❌ Lỗi tạo báo cáo: {e}")
+            self.status_label.config(text="❌ Lỗi tạo báo cáo")
+            self.msg_helper.show_error(
+                "Lỗi",
+                f"Không thể tạo báo cáo thống kê:\n\n{str(e)}",
+                parent=self
             )
-
-            # Value on top
-            canvas.create_text(
-                x + bar_width / 2,
-                origin_y - bar_height - 10,
-                text=str(count),
-                font=('Arial', 11, 'bold'),
-                fill=color
-            )
-
-            # Percentage
-            percent = count / total * 100
-            canvas.create_text(
-                x + bar_width / 2,
-                origin_y - bar_height - 28,
-                text=f"{percent:.1f}%",
-                font=('Arial', 9),
-                fill='#555'
-            )
-
-            # X label
-            canvas.create_text(
-                x + bar_width / 2,
-                origin_y + 15,
-                text=label,
-                font=('Arial', 10)
-            )
-
-        # ===== LEGEND =====
-        legend_y = 20
-        for i, (label, _, color) in enumerate(data):
-            lx = origin_x + i * 160
-            canvas.create_rectangle(lx, legend_y, lx + 18, legend_y + 18, fill=color, outline='')
-            canvas.create_text(lx + 25, legend_y + 9, text=label, anchor='w', font=('Arial', 10))
-
-        # Action buttons
-        btn_frame = ttk.Frame(main_frame)
-        btn_frame.pack(pady=15)
-
-        ttk.Button(
-            btn_frame,
-            text="🔄 Cập nhật tự động thẻ HH",
-            command=lambda: self._auto_update_and_refresh(dialog),
-            width=25
-        ).pack(side='left', padx=5)
-
-        ttk.Button(
-            btn_frame,
-            text="📊 Xuất báo cáo",
-            command=self._export_statistics_report,
-            width=18
-        ).pack(side='left', padx=5)
-
-        ttk.Button(
-            btn_frame,
-            text="❌ Đóng",
-            command=dialog.destroy,
-            width=15
-        ).pack(side='left', padx=5)
 
     def _auto_update_and_refresh(self, dialog):
         """Tự động cập nhật thẻ hết hạn"""
