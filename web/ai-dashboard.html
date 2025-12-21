@@ -3,29 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Library AI Forecasting Dashboard</title>
-
-    <!-- Tailwind CSS -->
+    <title>Library AI Analytics Dashboard - Enhanced</title>
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
+        body { font-family: 'Inter', 'Segoe UI', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card { transition: all 0.3s ease; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+        .badge-hot { background: linear-gradient(135deg, #FF6B6B, #FF8E53); }
+        .badge-trending { background: linear-gradient(135deg, #4ECDC4, #44A08D); }
+        .badge-cold { background: linear-gradient(135deg, #A8EDEA, #FED6E3); }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50">
 
-<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+<div class="min-h-screen p-6">
     <div class="max-w-7xl mx-auto">
 
         <!-- Header -->
@@ -33,84 +27,116 @@
             <div class="flex items-center justify-between">
                 <div>
                     <div class="flex items-center gap-3 mb-2">
-                        <i data-lucide="brain" class="w-10 h-10 text-indigo-600"></i>
-                        <h1 class="text-4xl font-bold text-gray-800">AI Dự Đoán Thư Viện</h1>
+                        <i data-lucide="brain" class="w-12 h-12 text-indigo-600"></i>
+                        <h1 class="text-4xl font-bold text-gray-800">Library AI Analytics</h1>
                     </div>
-                    <p class="text-gray-600 text-lg">
-                        Phân tích xu hướng và dự báo tương lai bằng Machine Learning
-                    </p>
+                    <p class="text-gray-600 text-lg">Phân tích đa chiều và dự đoán thông minh</p>
                 </div>
-                <div class="text-right">
-                    <div class="text-sm text-gray-500 mb-1">Độ tin cậy</div>
-                    <div class="text-3xl font-bold text-green-600" id="confidence">90%</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8" id="statsCards">
-            <!-- Stats sẽ được render bằng JavaScript -->
-        </div>
-
-        <!-- Controls -->
-        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
-            <div class="flex flex-wrap gap-4 items-center">
-                <div class="flex-1 min-w-[200px]">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Chỉ số dự đoán
-                    </label>
-                    <select id="metricSelect" class="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                        <option value="borrowing">📚 Số lượt mượn sách</option>
-                        <option value="revenue">💰 Doanh thu từ phạt</option>
-                        <option value="newUsers">👥 Bạn đọc mới</option>
-                    </select>
-                </div>
-
-                <div class="flex-1 min-w-[200px]">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Dự đoán <span id="periodLabel">6</span> tháng tới
-                    </label>
-                    <input type="range" id="periodRange" min="3" max="8" value="6"
-                           class="w-full" oninput="updatePeriodLabel(this.value)">
-                </div>
-
-                <button onclick="loadData()" class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-                    🔄 Làm mới
+                <button onclick="loadAllData()" class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all">
+                    🔄 Refresh All
                 </button>
             </div>
         </div>
 
-        <!-- Main Chart -->
-        <div class="bg-white rounded-xl shadow-lg p-8 mb-8">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">
-                <span id="chartTitle">📚 Số lượt mượn sách</span>
-            </h2>
-            <canvas id="mainChart" height="100"></canvas>
-        </div>
-
-        <!-- Forecast Table -->
-        <div class="bg-white rounded-xl shadow-lg p-8">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">
-                📊 Bảng Dự Đoán Chi Tiết
-            </h2>
-            <div class="overflow-x-auto">
-                <table class="w-full" id="forecastTable">
-                    <!-- Table sẽ được render bằng JavaScript -->
-                </table>
+        <!-- Tab Navigation -->
+        <div class="bg-white rounded-xl shadow-lg mb-8 p-2">
+            <div class="flex gap-2" id="tabs">
+                <button onclick="showTab('overview')" class="tab-btn active px-6 py-3 rounded-lg font-medium transition-all">
+                    📊 Tổng quan
+                </button>
+                <button onclick="showTab('categories')" class="tab-btn px-6 py-3 rounded-lg font-medium transition-all">
+                    📚 Thể loại
+                </button>
+                <button onclick="showTab('authors')" class="tab-btn px-6 py-3 rounded-lg font-medium transition-all">
+                    ✍️ Tác giả
+                </button>
+                <button onclick="showTab('publishers')" class="tab-btn px-6 py-3 rounded-lg font-medium transition-all">
+                    🏢 Nhà XB
+                </button>
+                <button onclick="showTab('forecast')" class="tab-btn px-6 py-3 rounded-lg font-medium transition-all">
+                    🔮 Dự đoán
+                </button>
             </div>
         </div>
 
-        <!-- AI Info -->
-        <div class="mt-8 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 border-l-4 border-indigo-500">
-            <div class="flex items-start gap-4">
-                <i data-lucide="alert-circle" class="w-6 h-6 text-indigo-600 flex-shrink-0 mt-1"></i>
-                <div>
-                    <h3 class="font-semibold text-gray-800 mb-2">📌 Về Mô Hình AI</h3>
-                    <p class="text-gray-700 text-sm leading-relaxed">
-                        Hệ thống sử dụng <strong>Linear Regression với Time Series Analysis</strong> để dự đoán xu hướng.
-                        Dữ liệu được lấy từ API Flask backend kết nối với MySQL database.
-                    </p>
+        <!-- Tab Contents -->
+        <div id="overview" class="tab-content">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8" id="statsCards"></div>
+            <div class="bg-white rounded-xl shadow-lg p-8">
+                <h2 class="text-2xl font-bold mb-6">📈 Xu hướng tổng quan</h2>
+                <canvas id="overviewChart" height="80"></canvas>
+            </div>
+        </div>
+
+        <div id="categories" class="tab-content hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div class="bg-white rounded-xl shadow-lg p-8">
+                    <h2 class="text-2xl font-bold mb-6">🔥 Thể loại Hot/Trending</h2>
+                    <div id="categoriesList"></div>
                 </div>
+                <div class="bg-white rounded-xl shadow-lg p-8">
+                    <h2 class="text-2xl font-bold mb-6">📊 Phân bố lượt mượn</h2>
+                    <canvas id="categoriesChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-8">
+                <h2 class="text-2xl font-bold mb-6">💡 Insights & Recommendations</h2>
+                <div id="categoryInsights"></div>
+            </div>
+        </div>
+
+        <div id="authors" class="tab-content hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl shadow-lg p-8">
+                    <h2 class="text-2xl font-bold mb-6">⭐ Top Tác Giả</h2>
+                    <div id="authorsList"></div>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-8">
+                    <h2 class="text-2xl font-bold mb-6">📊 Popularity Score</h2>
+                    <canvas id="authorsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div id="publishers" class="tab-content hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl shadow-lg p-8">
+                    <h2 class="text-2xl font-bold mb-6">🏆 Top Nhà Xuất Bản</h2>
+                    <div id="publishersList"></div>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-8">
+                    <h2 class="text-2xl font-bold mb-6">📊 Performance Score</h2>
+                    <canvas id="publishersChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div id="forecast" class="tab-content hidden">
+            <div class="bg-white rounded-xl shadow-lg p-8 mb-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">🔮 Dự Đoán Thông Minh</h2>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2">
+                            <span class="text-sm">Số tháng:</span>
+                            <input type="range" id="forecastMonths" min="3" max="12" value="6"
+                                   onchange="loadForecast()" class="w-32">
+                            <span id="monthsLabel" class="text-sm font-bold">6</span>
+                        </label>
+                    </div>
+                </div>
+                <canvas id="forecastChart" height="80"></canvas>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-8">
+                <h2 class="text-2xl font-bold mb-6">📊 Chi Tiết Dự Đoán</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full" id="forecastTable"></table>
+                </div>
+            </div>
+
+            <div class="mt-8 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6">
+                <h3 class="font-semibold text-gray-800 mb-4">🧠 Mô Hình AI</h3>
+                <div id="modelInfo" class="text-sm text-gray-700 leading-relaxed"></div>
             </div>
         </div>
 
@@ -118,208 +144,345 @@
 </div>
 
 <script>
-    // ========== CONFIGURATION ==========
-    const API_URL = 'http://localhost:5000/api/ai/forecast';
+const API_URL = 'http://localhost:5000/api/ai';
+let charts = {};
+let allData = {};
 
-    let chart = null;
-    let currentData = null;
+// ========== TAB MANAGEMENT ==========
+function showTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.getElementById(tabName).classList.remove('hidden');
 
-    // ========== LOAD DATA FROM API ==========
-    async function loadData() {
-        const historyMonths = 12;
-        const forecastMonths = document.getElementById('periodRange').value;
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active', 'bg-indigo-600', 'text-white');
+        btn.classList.add('text-gray-600', 'hover:bg-gray-100');
+    });
 
-        try {
-            // Hiển thị loading
-            document.getElementById('confidence').textContent = 'Loading...';
+    event.target.classList.add('active', 'bg-indigo-600', 'text-white');
+    event.target.classList.remove('text-gray-600', 'hover:bg-gray-100');
+}
 
-            const response = await fetch(`${API_URL}?history_months=${historyMonths}&forecast_months=${forecastMonths}`);
-            const data = await response.json();
+// ========== LOAD ALL DATA ==========
+async function loadAllData() {
+    try {
+        const response = await fetch(`${API_URL}/insights/comprehensive`);
+        const data = await response.json();
 
-            if (data.success) {
-                currentData = data;
-                renderStats(data.statistics);
-                renderChart(data);
-                renderTable(data.forecast);
-
-                // Update confidence
-                if (data.forecast.length > 0) {
-                    document.getElementById('confidence').textContent = data.forecast[0].confidence + '%';
-                }
-            } else {
-                alert('Không thể tải dữ liệu: ' + (data.message || 'Unknown error'));
-            }
-        } catch (error) {
-            console.error('Error loading data:', error);
-            alert('Không thể kết nối tới API Server.\n\nVui lòng đảm bảo Flask API đang chạy tại http://localhost:5000');
-
-            // Load demo data
-            loadDemoData();
+        if (data.success) {
+            allData = data;
+            renderOverview(data);
+            renderCategories(data.categories);
+            renderAuthors(data.authors);
+            renderPublishers(data.publishers);
+            renderForecast(data.forecast);
+        } else {
+            alert('Không thể tải dữ liệu');
         }
+    } catch (error) {
+        console.error('Error loading data:', error);
+        alert('Lỗi kết nối API. Vui lòng kiểm tra Flask server đang chạy.');
     }
+}
 
-    // ========== RENDER STATS CARDS ==========
-    function renderStats(stats) {
-        const statsHTML = `
-            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
-                <div class="flex items-center justify-between mb-2">
-                    <i data-lucide="book-open" class="w-8 h-8 text-blue-500"></i>
-                    <i data-lucide="trending-up" class="w-5 h-5 text-green-500"></i>
-                </div>
-                <div class="text-2xl font-bold text-gray-800">${stats.avg_borrowing || 0}</div>
-                <div class="text-sm text-gray-600">TB Mượn/Tháng</div>
-            </div>
+// ========== OVERVIEW TAB ==========
+function renderOverview(data) {
+    const stats = `
+        <div class="card bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
+            <i data-lucide="book-open" class="w-8 h-8 mb-2"></i>
+            <div class="text-3xl font-bold">${data.categories.categories?.length || 0}</div>
+            <div class="text-sm opacity-90">Thể loại sách</div>
+        </div>
+        <div class="card bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
+            <i data-lucide="users" class="w-8 h-8 mb-2"></i>
+            <div class="text-3xl font-bold">${data.authors.top_authors?.length || 0}</div>
+            <div class="text-sm opacity-90">Tác giả nổi bật</div>
+        </div>
+        <div class="card bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
+            <i data-lucide="building" class="w-8 h-8 mb-2"></i>
+            <div class="text-3xl font-bold">${data.publishers.publishers?.length || 0}</div>
+            <div class="text-sm opacity-90">Nhà xuất bản</div>
+        </div>
+        <div class="card bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white">
+            <i data-lucide="trending-up" class="w-8 h-8 mb-2"></i>
+            <div class="text-3xl font-bold">${data.forecast.forecast?.length || 0}</div>
+            <div class="text-sm opacity-90">Tháng dự đoán</div>
+        </div>
+    `;
+    document.getElementById('statsCards').innerHTML = stats;
+    lucide.createIcons();
+}
 
-            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500">
-                <div class="flex items-center justify-between mb-2">
-                    <i data-lucide="dollar-sign" class="w-8 h-8 text-green-500"></i>
-                    <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">+${stats.growth_rate ? stats.growth_rate.toFixed(1) : 0}%</span>
-                </div>
-                <div class="text-2xl font-bold text-gray-800">
-                    ${((stats.total_revenue || 0) / 1000000).toFixed(1)}M
-                </div>
-                <div class="text-sm text-gray-600">Doanh Thu Năm</div>
-            </div>
+// ========== CATEGORIES TAB ==========
+function renderCategories(categoriesData) {
+    if (!categoriesData.success) return;
 
-            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-orange-500">
-                <div class="flex items-center justify-between mb-2">
-                    <i data-lucide="users" class="w-8 h-8 text-orange-500"></i>
-                    <i data-lucide="calendar" class="w-5 h-5 text-gray-400"></i>
-                </div>
-                <div class="text-2xl font-bold text-gray-800">${stats.total_new_users || 0}</div>
-                <div class="text-sm text-gray-600">Bạn Đọc Mới</div>
-            </div>
+    const categories = categoriesData.categories;
 
-            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500">
-                <div class="flex items-center justify-between mb-2">
-                    <i data-lucide="brain" class="w-8 h-8 text-purple-500"></i>
-                    <i data-lucide="alert-circle" class="w-5 h-5 text-blue-500"></i>
+    // Render list
+    const listHTML = categories.slice(0, 10).map(cat => {
+        const badgeClass = cat.trend === 'hot' ? 'badge-hot' :
+                          cat.trend === 'trending' ? 'badge-trending' : 'badge-cold';
+        return `
+            <div class="flex items-center justify-between p-4 border-b hover:bg-gray-50">
+                <div>
+                    <div class="font-medium text-gray-800">${cat.category}</div>
+                    <div class="text-sm text-gray-500">${cat.total_borrows} lượt mượn</div>
                 </div>
-                <div class="text-2xl font-bold text-gray-800">Linear+</div>
-                <div class="text-sm text-gray-600">Mô Hình AI</div>
+                <div class="flex items-center gap-3">
+                    <div class="text-right">
+                        <div class="text-sm font-medium">${cat.popularity_score}%</div>
+                        <div class="text-xs text-gray-500">Popularity</div>
+                    </div>
+                    <span class="${badgeClass} text-white px-3 py-1 rounded-full text-xs font-bold">
+                        ${cat.trend.toUpperCase()}
+                    </span>
+                </div>
             </div>
         `;
+    }).join('');
+    document.getElementById('categoriesList').innerHTML = listHTML;
 
-        document.getElementById('statsCards').innerHTML = statsHTML;
-        lucide.createIcons();
-    }
+    // Render chart
+    const ctx = document.getElementById('categoriesChart').getContext('2d');
+    if (charts.categories) charts.categories.destroy();
 
-    // ========== RENDER CHART ==========
-    function renderChart(data) {
-        const metric = document.getElementById('metricSelect').value;
-        const allData = [...data.historical, ...data.forecast];
-
-        const labels = allData.map(d => d.month_display);
-        const values = allData.map(d => d[metric === 'borrowing' ? 'borrowing_count' : metric === 'revenue' ? 'revenue' : 'new_users']);
-        const isActual = allData.map(d => !d.is_forecast);
-
-        const ctx = document.getElementById('mainChart').getContext('2d');
-
-        if (chart) {
-            chart.destroy();
+    charts.categories = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: categories.map(c => c.category),
+            datasets: [{
+                data: categories.map(c => c.total_borrows),
+                backgroundColor: [
+                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+                    '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } }
         }
+    });
 
-        chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Thực tế',
-                    data: values.map((v, i) => isActual[i] ? v : null),
-                    borderColor: '#2196F3',
-                    backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4
-                }, {
-                    label: 'Dự đoán',
-                    data: values.map((v, i) => !isActual[i] ? v : null),
-                    borderColor: '#FF9800',
-                    backgroundColor: 'rgba(255, 152, 0, 0.1)',
-                    borderWidth: 3,
-                    borderDash: [5, 5],
-                    fill: true,
-                    tension: 0.4
-                }]
+    // Render insights
+    const insights = categoriesData.insights;
+    document.getElementById('categoryInsights').innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="p-4 bg-green-50 rounded-lg">
+                <div class="text-sm text-gray-600">Thể loại hàng đầu</div>
+                <div class="text-lg font-bold text-green-700">${insights.top_category}</div>
+            </div>
+            <div class="p-4 bg-blue-50 rounded-lg">
+                <div class="text-sm text-gray-600">Thể loại HOT</div>
+                <div class="text-lg font-bold text-blue-700">${insights.hot_categories_count} thể loại</div>
+            </div>
+            <div class="p-4 bg-purple-50 rounded-lg">
+                <div class="text-sm text-gray-600">Nên tập trung</div>
+                <div class="text-lg font-bold text-purple-700">${insights.recommended_categories.join(', ')}</div>
+            </div>
+        </div>
+    `;
+}
+
+// ========== AUTHORS TAB ==========
+function renderAuthors(authorsData) {
+    if (!authorsData.success) return;
+
+    const authors = authorsData.top_authors;
+
+    // Render list
+    const listHTML = authors.map((author, idx) => `
+        <div class="flex items-center gap-4 p-4 border-b hover:bg-gray-50">
+            <div class="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                ${idx + 1}
+            </div>
+            <div class="flex-1">
+                <div class="font-medium text-gray-800">${author.author}</div>
+                <div class="text-sm text-gray-500">${author.total_borrows} lượt mượn • ${author.total_books} sách</div>
+            </div>
+            <div class="text-right">
+                <div class="text-lg font-bold text-indigo-600">${author.popularity_score}</div>
+                <div class="text-xs text-gray-500">Score</div>
+            </div>
+        </div>
+    `).join('');
+    document.getElementById('authorsList').innerHTML = listHTML;
+
+    // Render chart
+    const ctx = document.getElementById('authorsChart').getContext('2d');
+    if (charts.authors) charts.authors.destroy();
+
+    charts.authors = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: authors.map(a => a.author),
+            datasets: [{
+                label: 'Popularity Score',
+                data: authors.map(a => a.popularity_score),
+                backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                borderColor: 'rgb(99, 102, 241)',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+// ========== PUBLISHERS TAB ==========
+function renderPublishers(publishersData) {
+    if (!publishersData.success) return;
+
+    const publishers = publishersData.publishers;
+
+    const listHTML = publishers.map((pub, idx) => `
+        <div class="flex items-center gap-4 p-4 border-b hover:bg-gray-50">
+            <div class="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-green-500 to-teal-600 rounded-full flex items-center justify-center text-white font-bold">
+                ${idx + 1}
+            </div>
+            <div class="flex-1">
+                <div class="font-medium text-gray-800">${pub.publisher}</div>
+                <div class="text-sm text-gray-500">${pub.total_books} sách • ${pub.total_borrows} lượt mượn</div>
+            </div>
+            <div class="text-right">
+                <div class="text-lg font-bold text-green-600">${pub.performance_score}</div>
+                <div class="text-xs text-gray-500">Performance</div>
+            </div>
+        </div>
+    `).join('');
+    document.getElementById('publishersList').innerHTML = listHTML;
+
+    const ctx = document.getElementById('publishersChart').getContext('2d');
+    if (charts.publishers) charts.publishers.destroy();
+
+    charts.publishers = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: publishers.map(p => p.publisher),
+            datasets: [{
+                label: 'Performance Score',
+                data: publishers.map(p => p.performance_score),
+                backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                borderColor: 'rgb(16, 185, 129)',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+// ========== FORECAST TAB ==========
+async function loadForecast() {
+    const months = document.getElementById('forecastMonths').value;
+    document.getElementById('monthsLabel').textContent = months;
+
+    try {
+        const response = await fetch(`${API_URL}/forecast-smart?months=${months}`);
+        const data = await response.json();
+
+        if (data.success) {
+            renderForecast(data);
+        }
+    } catch (error) {
+        console.error('Error loading forecast:', error);
+    }
+}
+
+function renderForecast(forecastData) {
+    if (!forecastData.success) return;
+
+    const forecast = forecastData.forecast;
+
+    // Render chart
+    const ctx = document.getElementById('forecastChart').getContext('2d');
+    if (charts.forecast) charts.forecast.destroy();
+
+    charts.forecast = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: forecast.map(f => f.month_display),
+            datasets: [{
+                label: 'Dự đoán lượt mượn',
+                data: forecast.map(f => f.borrowing_count),
+                borderColor: 'rgb(255, 152, 0)',
+                backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'top' }
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
+            scales: {
+                y: { beginAtZero: true }
             }
-        });
-    }
-
-    // ========== RENDER TABLE ==========
-    function renderTable(forecast) {
-        const tableHTML = `
-            <thead>
-                <tr class="bg-gradient-to-r from-indigo-50 to-purple-50">
-                    <th class="px-6 py-4 text-left font-semibold text-gray-700">Tháng</th>
-                    <th class="px-6 py-4 text-center font-semibold text-gray-700">Lượt Mượn</th>
-                    <th class="px-6 py-4 text-center font-semibold text-gray-700">Doanh Thu</th>
-                    <th class="px-6 py-4 text-center font-semibold text-gray-700">Bạn Đọc Mới</th>
-                    <th class="px-6 py-4 text-center font-semibold text-gray-700">Độ Tin Cậy</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${forecast.map(item => `
-                    <tr class="border-b border-gray-100 hover:bg-orange-50 transition-colors">
-                        <td class="px-6 py-4 font-medium text-gray-800">${item.month_display}</td>
-                        <td class="px-6 py-4 text-center text-blue-600 font-semibold">${item.borrowing_count} lượt</td>
-                        <td class="px-6 py-4 text-center text-green-600 font-semibold">${(item.revenue / 1000000).toFixed(2)}M VNĐ</td>
-                        <td class="px-6 py-4 text-center text-orange-600 font-semibold">${item.new_users} người</td>
-                        <td class="px-6 py-4 text-center">
-                            <span class="px-3 py-1 rounded-full text-sm font-medium ${
-                                item.confidence >= 90 ? 'bg-green-100 text-green-800' :
-                                item.confidence >= 80 ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-orange-100 text-orange-800'
-                            }">
-                                ${item.confidence}%
-                            </span>
-                        </td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        `;
-
-        document.getElementById('forecastTable').innerHTML = tableHTML;
-    }
-
-    // ========== DEMO DATA (Fallback) ==========
-    function loadDemoData() {
-        // Demo data tương tự như trong React component
-        console.log('Loading demo data...');
-    }
-
-    // ========== UTILITY FUNCTIONS ==========
-    function updatePeriodLabel(value) {
-        document.getElementById('periodLabel').textContent = value;
-    }
-
-    // ========== EVENT LISTENERS ==========
-    document.getElementById('metricSelect').addEventListener('change', () => {
-        if (currentData) {
-            renderChart(currentData);
         }
     });
 
-    document.getElementById('periodRange').addEventListener('change', loadData);
+    // Render table
+    const tableHTML = `
+        <thead class="bg-gradient-to-r from-indigo-50 to-purple-50">
+            <tr>
+                <th class="px-6 py-4 text-left">Tháng</th>
+                <th class="px-6 py-4 text-center">Lượt mượn</th>
+                <th class="px-6 py-4 text-center">Doanh thu (M)</th>
+                <th class="px-6 py-4 text-center">Bạn đọc mới</th>
+                <th class="px-6 py-4 text-center">Tin cậy</th>
+                <th class="px-6 py-4 text-center">Factors</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${forecast.map(f => `
+                <tr class="border-b hover:bg-orange-50">
+                    <td class="px-6 py-4 font-medium">${f.month_display}</td>
+                    <td class="px-6 py-4 text-center text-blue-600 font-bold">${f.borrowing_count}</td>
+                    <td class="px-6 py-4 text-center text-green-600">${(f.revenue / 1000000).toFixed(2)}M</td>
+                    <td class="px-6 py-4 text-center text-orange-600">${f.new_users}</td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="px-3 py-1 rounded-full text-sm font-medium ${
+                            f.confidence >= 90 ? 'bg-green-100 text-green-800' :
+                            f.confidence >= 80 ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-orange-100 text-orange-800'
+                        }">
+                            ${f.confidence}%
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-center text-xs text-gray-600">
+                        Trend: ${f.factors?.trend}%<br>
+                        Season: ${f.factors?.seasonality}%<br>
+                        Boost: +${f.factors?.hot_boost}%
+                    </td>
+                </tr>
+            `).join('')}
+        </tbody>
+    `;
+    document.getElementById('forecastTable').innerHTML = tableHTML;
 
-    // ========== INIT ==========
-    document.addEventListener('DOMContentLoaded', () => {
-        lucide.createIcons();
-        loadData();
-    });
+    // Model info
+    const modelInfo = forecastData.model_info;
+    document.getElementById('modelInfo').innerHTML = `
+        <p><strong>Model:</strong> ${modelInfo.type}</p>
+        <p><strong>Factors:</strong> ${modelInfo.factors.join(', ')}</p>
+        <p><strong>Accuracy:</strong> ${modelInfo.accuracy}</p>
+        <p><strong>Hot Categories Boost:</strong> ${modelInfo.hot_categories_boost}</p>
+    `;
+}
+
+// ========== INIT ==========
+document.addEventListener('DOMContentLoaded', () => {
+    lucide.createIcons();
+    loadAllData();
+});
 </script>
 
 </body>
